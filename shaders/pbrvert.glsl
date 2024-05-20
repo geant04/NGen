@@ -9,10 +9,15 @@ out vec3 fs_Pos;
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
+uniform mat4 modelInvTrans;
 
 void main() 
 {
     gl_Position = projection * view * model * vec4(pos, 1.0);
-    fs_Nor = nor;
-    fs_Pos = vec3(model * vec4(pos, 1.0));
+    mat3 invTranspose = mat3(modelInvTrans);
+
+    fs_Nor = normalize(invTranspose * nor);
+
+    vec4 modelPos = model * vec4(pos, 1.0);
+    fs_Pos = modelPos.xyz;
 }

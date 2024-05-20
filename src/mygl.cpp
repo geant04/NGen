@@ -99,7 +99,7 @@ void MyGL::init()
 
     // constants for the shader
     glm::vec3 u_Albedo = glm::vec3(0.5f, 0.0f, 0.0f);
-    float u_Roughness = 0.1f;
+    float u_Roughness = 0.5f;
     float u_Metallic = 0.5f;
     float u_AmbientOcclusion = 1.0f;
 
@@ -134,6 +134,7 @@ void MyGL::init()
         // set some stuff
         ourShader.use();
         ourShader.setMat4("model", model);
+        ourShader.setMat4("modelInvTrans", glm::transpose(glm::inverse(model)));
         ourShader.setMat4("view", view);
         ourShader.setMat4("projection", projection);
         ourShader.setVec3("u_CamPos", camera.eye);

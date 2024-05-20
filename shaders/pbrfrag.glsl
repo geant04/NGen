@@ -10,12 +10,18 @@ uniform float u_AmbientOcclusion;
 in vec3 fs_Nor;
 in vec3 fs_Pos;
 
-const vec3 light_pos[1] = vec3[](vec3(0, 10, 5));
+const vec3 light_pos[4] = vec3[](vec3(-10, 10, 10),
+                                 vec3(10, 10, 10),
+                                 vec3(-10, -10, 10),
+                                 vec3(10, -10, 10));
 
 // vec3(0, 10, 0) is a more dramatic angle ig
 // vec3(0, 10, 5) is pretty decent
 
-const vec3 light_col[1] = vec3[](vec3(300.f, 300.f, 300.f));
+const vec3 light_col[4] = vec3[](vec3(300.f, 300.f, 300.f) * 1,
+                                 vec3(300.f, 300.f, 300.f) * 1,
+                                 vec3(300.f, 300.f, 300.f) * 1,
+                                 vec3(300.f, 300.f, 300.f) * 1);
 
 const float PI = 3.14159f;
 
@@ -114,7 +120,7 @@ void main()
     // use this to toggle the epic sparkles
     bool sparkly = false;
 
-    for (int i = 0; i < 1; i++) {
+    for (int i = 0; i < 4; i++) {
         vec3 diff = light_pos[i] - fs_Pos;
         vec3 light_color = light_col[i];
         vec3 irradiance = light_color / dot(diff, diff);
