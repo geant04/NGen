@@ -19,9 +19,9 @@ MyGL::~MyGL()
 }
 
 // camera
-const int WIDTH = 800;
-const int HEIGHT = 600;
-Camera camera(800, 600);
+const int WIDTH = 1200;
+const int HEIGHT = 900;
+Camera camera(WIDTH, HEIGHT);
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -88,13 +88,20 @@ void MyGL::init()
     }
 
     // load our scene
-    Shader ourShader("../shaders/vert.glsl", "../shaders/frag.glsl");
+    //Shader ourShader("../shaders/vert.glsl", "../shaders/frag.glsl");
+    Shader ourShader("../shaders/pbrvert.glsl", "../shaders/pbrfrag.glsl");
     Mesh ourMesh;
     ourMesh.LoadObj("../models/teapot.obj");
     ourMesh.create();
 
     float deltaTime = 0.0f;
     float lastFrame = 0.0f;
+
+    // constants for the shader
+    glm::vec3 u_Albedo = glm::vec3(0.5f, 0.0f, 0.0f);
+    float u_Roughness = 0.1f;
+    float u_Metallic = 0.5f;
+    float u_AmbientOcclusion = 1.0f;
 
     // render loop
     while (!glfwWindowShouldClose(window))
@@ -113,8 +120,10 @@ void MyGL::init()
 
         // camera
         glm::mat4 model = glm::mat4(1.0f);
-        //  currentFrame
-        model = glm::rotate(model, currentFrame * glm::radians(50.0f), glm::vec3(0.5f, 1.0f, 0.0f));
+        
+        // teapot is a bit big
+        model = glm::scale(model, glm::vec3(0.25f));
+        model = glm::rotate(model, currentFrame * glm::radians(50.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
         glm::mat4 view = glm::mat4(1.0f);
         view = camera.getViewMatrix();
@@ -127,6 +136,11 @@ void MyGL::init()
         ourShader.setMat4("model", model);
         ourShader.setMat4("view", view);
         ourShader.setMat4("projection", projection);
+        ourShader.setVec3("u_CamPos", camera.eye);
+        ourShader.setVec3("u_Albedo", u_Albedo);
+        ourShader.setFloat("u_Roughness", u_Roughness);
+        ourShader.setFloat("u_Metallic", u_Metallic);
+        ourShader.setFloat("u_AmbientOcclusion", u_AmbientOcclusion);
 
         ourMesh.Draw();
 
