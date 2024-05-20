@@ -45,6 +45,12 @@ public:
     glm::mat4 getProjectionMatrix();
     glm::mat4 getViewMatrix();
 
+    void recomputeAttributes() {
+        look = glm::normalize(ref - eye);
+        right = glm::normalize(glm::cross(look, up));
+        up = glm::normalize(glm::cross(right, look));
+    }
+
     void zoom(float amt) {
         eye += look * amt;
     }
@@ -65,10 +71,36 @@ public:
     }
 
     void rotateRight(float angle) {
-        std::cout << "right: " << right.x << ", " << right.y << ", " << right.z << std::endl;
-        glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(angle), world_up);
+        glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), angle, world_up);
         look = glm::vec3(rotation * glm::vec4(look, 1.0));
-        right = glm::vec3(rotation * glm::vec4(right, 1.0));        
+        right = glm::vec3(rotation * glm::vec4(right, 1.0));     
+        ref = eye + look;
+    }
+
+    void rotateUp(float angle) {
+        glm::vec3 axis = glm::normalize(glm::cross(look, world_up));
+        glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), angle, axis);
+        look = glm::vec3(rotation * glm::vec4(look, 1.0));
+        up = glm::vec3(rotation * glm::vec4(up, 1.0));
+        right = glm::normalize(glm::cross(look, up));
+        ref = eye + look;
+    }
+
+    // thanks mally
+    void rotateTheta(float angle) {
+        glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(angle), right);
+        eye = eye - ref;
+        eye = glm::vec3(rotation * glm::vec4(eye, 1.0));
+        eye = eye + ref;
+        recomputeAttributes();
+    }
+
+    void rotatePhi(float angle) {
+        glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(angle), up);
+        eye = eye - ref;
+        eye = glm::vec3(rotation * glm::vec4(eye, 1.0));
+        eye = eye + ref;
+        recomputeAttributes();
     }
 
 private:

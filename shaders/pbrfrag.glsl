@@ -9,11 +9,12 @@ uniform float u_AmbientOcclusion;
 
 in vec3 fs_Nor;
 in vec3 fs_Pos;
+in vec2 fs_UV;
 
-const vec3 light_pos[4] = vec3[](vec3(-10, 10, 10),
-                                 vec3(10, 10, 10),
-                                 vec3(-10, -10, 10),
-                                 vec3(10, -10, 10));
+const vec3 light_pos[4] = vec3[](vec3(-10, 10, -10),
+                                 vec3(10, 10, -10),
+                                 vec3(-10, -10, -10),
+                                 vec3(10, -10, -10));
 
 // vec3(0, 10, 0) is a more dramatic angle ig
 // vec3(0, 10, 5) is pretty decent
@@ -60,6 +61,13 @@ vec3 fresnelSchlick(float theta, vec3 R) {
 }
 
 vec3 glint(vec3 w_h, float targetNDF, float maxNDF, vec2 uv, vec2 duvdx, vec2 duvdy) {
+    // modify the NDF to be matching of the glint ndf
+    // sample a random theta, used for our bernoulli trials
+    // temporal coherence: this is like basically going from one LOD to another LOD
+    // solving anisotrphy by also doing some axis-aligning UV tricks
+    // the paper explains it all, let's just figure out a way to set up the ...
+    // set up the random texture our UVs will sample from
+
     return vec3(0.);
 }
 

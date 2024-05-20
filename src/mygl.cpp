@@ -22,6 +22,9 @@ MyGL::~MyGL()
 const int WIDTH = 1200;
 const int HEIGHT = 900;
 Camera camera(WIDTH, HEIGHT);
+glm::vec2 lastMousePos = glm::vec2(WIDTH / 2, HEIGHT / 2);
+bool firstMouse = true;
+bool mousePressed = false;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -57,6 +60,48 @@ void processInput(GLFWwindow* window, Camera& camera, float deltaTime)
         camera.rotateRight(-cameraSpeed);
     if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
         camera.rotateRight(cameraSpeed);
+    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+        camera.rotateUp(-cameraSpeed);
+    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+        camera.rotateUp(cameraSpeed);
+}
+
+void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
+{
+    float xpos = static_cast<float>(xposIn);
+    float ypos = static_cast<float>(yposIn);
+
+    glm::vec2 pos = glm::vec2(xpos, ypos);
+
+    if (firstMouse)
+    {
+        lastMousePos = pos;
+        firstMouse = false;
+    }
+
+    glm::vec2 offset = pos - lastMousePos;
+    lastMousePos = pos;
+
+    float sensitivity = 0.2f;
+    offset *= sensitivity;
+
+    if (mousePressed)
+    {
+        camera.rotatePhi(-offset.x);
+        camera.rotateTheta(-offset.y);
+    }
+}
+
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+{
+    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
+    {
+        //lastMousePos = glm::vec2(xpos, ypos);
+        mousePressed = true;
+    } else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
+    {
+        mousePressed = false;
+    }
 }
 
 void MyGL::init() 
@@ -79,6 +124,10 @@ void MyGL::init()
     glfwMakeContextCurrent(window);
     // register callback -- handle window resize
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    // register callback -- handle mouse movement
+    glfwSetCursorPosCallback(window, mouse_callback);
+    // register callback -- handle mouse button press
+    glfwSetMouseButtonCallback(window, mouse_button_callback);
 
     // load function pointers??
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
@@ -91,7 +140,7 @@ void MyGL::init()
     //Shader ourShader("../shaders/vert.glsl", "../shaders/frag.glsl");
     Shader ourShader("../shaders/pbrvert.glsl", "../shaders/pbrfrag.glsl");
     Mesh ourMesh;
-    ourMesh.LoadObj("../models/tahu.obj");
+    ourMesh.LoadObj("../models/teapot.obj");
     ourMesh.create();
 
     float deltaTime = 0.0f;
@@ -122,7 +171,7 @@ void MyGL::init()
         glm::mat4 model = glm::mat4(1.0f);
         
         // teapot is a bit big
-        model = glm::scale(model, glm::vec3(0.5f));
+        model = glm::scale(model, glm::vec3(0.10f));
         model = glm::rotate(model, currentFrame * glm::radians(50.0f), glm::vec3(0.25f, 1.0f, 0.0f));
 
         glm::mat4 view = glm::mat4(1.0f);

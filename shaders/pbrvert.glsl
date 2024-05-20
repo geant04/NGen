@@ -5,6 +5,7 @@ layout (location = 2) in vec2 tex;
 
 out vec3 fs_Nor;
 out vec3 fs_Pos;
+out vec2 fs_UV;
 
 uniform mat4 model;
 uniform mat4 view;
@@ -21,4 +22,6 @@ void main()
     fs_Pos = modelPos.xyz;
 
     gl_Position = projection * view * modelPos;
+
+    fs_UV = tex;
 }
