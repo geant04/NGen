@@ -91,7 +91,7 @@ void MyGL::init()
     //Shader ourShader("../shaders/vert.glsl", "../shaders/frag.glsl");
     Shader ourShader("../shaders/pbrvert.glsl", "../shaders/pbrfrag.glsl");
     Mesh ourMesh;
-    ourMesh.LoadObj("../models/teapot.obj");
+    ourMesh.LoadObj("../models/tahu.obj");
     ourMesh.create();
 
     float deltaTime = 0.0f;
@@ -99,7 +99,7 @@ void MyGL::init()
 
     // constants for the shader
     glm::vec3 u_Albedo = glm::vec3(0.5f, 0.0f, 0.0f);
-    float u_Roughness = 0.5f;
+    float u_Roughness = 0.2f;
     float u_Metallic = 0.5f;
     float u_AmbientOcclusion = 1.0f;
 
@@ -122,8 +122,8 @@ void MyGL::init()
         glm::mat4 model = glm::mat4(1.0f);
         
         // teapot is a bit big
-        model = glm::scale(model, glm::vec3(0.25f));
-        model = glm::rotate(model, currentFrame * glm::radians(50.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(0.5f));
+        model = glm::rotate(model, currentFrame * glm::radians(50.0f), glm::vec3(0.25f, 1.0f, 0.0f));
 
         glm::mat4 view = glm::mat4(1.0f);
         view = camera.getViewMatrix();

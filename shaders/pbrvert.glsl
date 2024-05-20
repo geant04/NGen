@@ -13,11 +13,12 @@ uniform mat4 modelInvTrans;
 
 void main() 
 {
-    gl_Position = projection * view * model * vec4(pos, 1.0);
     mat3 invTranspose = mat3(modelInvTrans);
 
     fs_Nor = normalize(invTranspose * nor);
 
     vec4 modelPos = model * vec4(pos, 1.0);
     fs_Pos = modelPos.xyz;
+
+    gl_Position = projection * view * modelPos;
 }

@@ -18,7 +18,7 @@ const vec3 light_pos[4] = vec3[](vec3(-10, 10, 10),
 // vec3(0, 10, 0) is a more dramatic angle ig
 // vec3(0, 10, 5) is pretty decent
 
-const vec3 light_col[4] = vec3[](vec3(300.f, 300.f, 300.f) * 1,
+const vec3 light_col[4] = vec3[](vec3(300.f, 300.f, 300.f) * 4,
                                  vec3(300.f, 300.f, 300.f) * 1,
                                  vec3(300.f, 300.f, 300.f) * 1,
                                  vec3(300.f, 300.f, 300.f) * 1);
