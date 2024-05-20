@@ -41,22 +41,3 @@ glm::mat4 Camera::getViewMatrix() {
                        this->ref,   // Looking at the origin
                        this->up);  // Up vector (positive Y-axis)
 }
-
-// process inputs for camera
-void processKeyboard(GLFWwindow *window, Camera &camera, float deltaTime)
-{
-    float cameraSpeed = 2.5f * deltaTime;
-
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        camera.translateForward(cameraSpeed);
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        camera.translateForward(-cameraSpeed);
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        camera.translateRight(-cameraSpeed);
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        camera.translateRight(cameraSpeed);
-    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
-        camera.translateUp(-cameraSpeed);
-    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
-        camera.translateUp(cameraSpeed);
-}

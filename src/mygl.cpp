@@ -1,12 +1,12 @@
 #include "mygl.h"
 
-#include <iostream>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include "shader.h"
 #include "mesh.h"
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <iostream>
 
 MyGL::MyGL()
 {
@@ -39,7 +39,24 @@ void processInput(GLFWwindow* window, Camera& camera, float deltaTime)
         glfwSetWindowShouldClose(window, true);
     }
 
-    camera.processKeyboard(window, deltaTime);
+    float cameraSpeed = 5.0f * deltaTime;
+
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        camera.translateForward(cameraSpeed);
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        camera.translateForward(-cameraSpeed);
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        camera.translateRight(-cameraSpeed);
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        camera.translateRight(cameraSpeed);
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+        camera.translateUp(-cameraSpeed);
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+        camera.translateUp(cameraSpeed);
+    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+        camera.rotateRight(-cameraSpeed);
+    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+        camera.rotateRight(cameraSpeed);
 }
 
 void MyGL::init() 
@@ -70,46 +87,11 @@ void MyGL::init()
         return;
     }
 
-    // shader program
+    // load our scene
     Shader ourShader("../shaders/vert.glsl", "../shaders/frag.glsl");
-
-    std::vector<glm::vec3> pos {glm::vec3(-1, -1, -1),
-                                glm::vec3( 1, -1, -1),
-                                glm::vec3( 1,  1, -1),
-                                glm::vec3(-1,  1, -1),
-                                glm::vec3(-1, -1,  1),
-                                glm::vec3( 1, -1,  1),
-                                glm::vec3( 1,  1,  1),
-                                glm::vec3(-1,  1,  1)};
-
-    std::vector<GLuint> idx {1, 0, 3, 1, 3, 2,
-                             4, 5, 6, 4, 6, 7,
-                             5, 1, 2, 5, 2, 6,
-                             7, 6, 2, 7, 2, 3,
-                             0, 4, 7, 0, 7, 3,
-                             0, 1, 5, 0, 5, 4};
-
-    std::vector<Vertex> vertices {};
-
-    std::vector<unsigned int> indices {};
-
-    for (unsigned int i = 0; i < 8; i++)
-    {
-        Vertex v;
-        v.Position = 0.5f * pos[i];
-        v.Normal = glm::vec3(0.0f, 1.0f, 0.0f);
-        v.TexCoords = glm::vec2(0.0f);
-        vertices.push_back(v);
-    }
-
-    for (unsigned int i = 0; i < 36; i++)
-    {
-        indices.push_back(idx[i]);
-    }
-
-    Mesh ourTriangle(vertices, indices, std::vector<Texture>());
-
-    //Camera camera(WIDTH, HEIGHT);
+    Mesh ourMesh;
+    ourMesh.LoadObj("../models/teapot.obj");
+    ourMesh.create();
 
     float deltaTime = 0.0f;
     float lastFrame = 0.0f;
@@ -131,6 +113,7 @@ void MyGL::init()
 
         // camera
         glm::mat4 model = glm::mat4(1.0f);
+        //  currentFrame
         model = glm::rotate(model, currentFrame * glm::radians(50.0f), glm::vec3(0.5f, 1.0f, 0.0f));
 
         glm::mat4 view = glm::mat4(1.0f);
@@ -145,7 +128,7 @@ void MyGL::init()
         ourShader.setMat4("view", view);
         ourShader.setMat4("projection", projection);
 
-        ourTriangle.Draw();
+        ourMesh.Draw();
 
         // check and call events and swap the buffers
         glfwSwapBuffers(window);

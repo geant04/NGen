@@ -3,7 +3,6 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
-#include <GLFW/glfw3.h>
 
 class Camera
 {
@@ -65,7 +64,12 @@ public:
         ref += look * amt;
     }
 
-    void processKeyboard(GLFWwindow* window, float deltaTime);
+    void rotateRight(float angle) {
+        std::cout << "right: " << right.x << ", " << right.y << ", " << right.z << std::endl;
+        glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), glm::radians(angle), world_up);
+        look = glm::vec3(rotation * glm::vec4(look, 1.0));
+        right = glm::vec3(rotation * glm::vec4(right, 1.0));        
+    }
 
 private:
     unsigned int width;
