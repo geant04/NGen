@@ -59,47 +59,6 @@ vec3 fresnelSchlick(float theta, vec3 R) {
     return R + (max(vec3(1.f - u_Roughness), R) - R) * pow(1.f - theta, 5.0f);
 }
 
-float random3( vec3 p ) {
-    return fract(sin((dot(p, vec3(127.1,
-                                  311.7,
-                                  191.999)))) *
-                 43758.5453);
-}
-
-vec3 vec3pow(vec3 p, float t) {
-    return vec3(pow(p.x, t), pow(p.y, t), pow(p.z, t));
-}
-
-float surflet(vec3 p, vec3 gridPoint) {
-    // Compute the distance between p and the grid point along each axis, and warp it with a
-    // quintic function so we can smooth our cells
-    vec3 t2 = abs(p - gridPoint);
-
-    vec3 t = vec3(1.f) - 6.f * vec3pow(t2, 5.f) + 15.f * vec3pow(t2, 4.f) - 10.f * vec3pow(t2, 3.f);
-    // Get the random vector for the grid point (assume we wrote a function random2
-    // that returns a vec2 in the range [0, 1])
-    vec3 gradient = random3(gridPoint) * 2. - vec3(1., 1., 1.);
-    // Get the vector from the grid point to P
-    vec3 diff = p - gridPoint;
-    // Get the value of our height field by dotting grid->P with our gradient
-    float height = dot(diff, gradient);
-    // Scale our height field (i.e. reduce it) by our polynomial falloff function
-    return height * t.x * t.y * t.z;
-}
-
-float perlinNoise3D(vec3 p) {
-        float surfletSum = 0.f;
-        // Iterate over the four integer corners surrounding uv
-        for(int dx = 0; dx <= 1; ++dx) {
-                for(int dy = 0; dy <= 1; ++dy) {
-                        for(int dz = 0; dz <= 1; ++dz) {
-                                surfletSum += surflet(p, floor(p) + vec3(dx, dy, dz));
-                        }
-                }
-        }
-        return surfletSum;
-}
-
 vec3 glint(vec3 w_h, float targetNDF, float maxNDF, vec2 uv, vec2 duvdx, vec2 duvdy) {
     return vec3(0.);
 }
@@ -114,9 +73,6 @@ void main()
     vec3 Lo = vec3(0.);
     vec3 intensity = 0.03f * u_AmbientOcclusion * albedo;
 
-    // use this to toggle the awesome mold shader
-    bool getMoldy = false;
-
     // use this to toggle the epic sparkles
     bool sparkly = false;
 
@@ -128,41 +84,6 @@ void main()
         vec3 w_i = normalize(diff);
         vec3 w_o = normalize(u_CamPos - fs_Pos);
         vec3 w_h = normalize((w_o + w_i) / 2.0f);
-
-        if (getMoldy) {
-            float moldIntensity = perlinNoise3D(fs_Pos * u_Roughness * 0.20) * 0.50 + 0.50;
-            roughness = clamp(mix(1.25 * roughness, 1.0, moldIntensity), 0.50, 1.0);
-
-            float freaky = u_Roughness * (perlinNoise3D(32.0 * fs_Pos / (moldIntensity + 0.001)));
-
-            vec3 mold = 1.2 * mix(albedo, vec3(1.0), pow(moldIntensity, 1.0)) *
-                    (perlinNoise3D(fs_Pos * pow(u_Roughness * 1.2, 2.0) * 2.0) + 1.0) * (freaky * 0.50 + 0.50);
-
-            albedo = mix(albedo, mold, u_Roughness + freaky - 0.10);
-
-            if (length(mold) > 0.40 && (u_Roughness + freaky > 0.70))  {
-                albedo = mix(albedo, vec3(1.0), length(mold) );
-                if (length(mold) > 1.25) {
-                    albedo = vec3(1.0);
-                }
-            }
-
-            float v = 1.2 * (perlinNoise3D(fs_Pos * 4.0) * 0.50 + 0.50);
-            float splotchMask = 1.4 * (perlinNoise3D(fs_Pos * 1.0 + 2.20) * 0.50 + 0.50);
-            splotchMask = smoothstep(0.40, 1.0, splotchMask);
-
-            albedo += pow(u_Roughness, 6.0) * smoothstep(0.65, 1.0, v) * vec3(0.87);
-            albedo *= vec3(1.0 - splotchMask * u_Roughness);
-
-            roughness *= ((1.0 - splotchMask) * u_Roughness);
-            metallic *= ((1.0 - splotchMask) * u_Roughness);
-
-            if (length(albedo) < 0.24) {
-                vec3 yuck = vec3(0.03, 0.09, 0.02);
-                yuck = mix(yuck, vec3(1.0), length(albedo) * 1.5);
-                albedo = mix(albedo, yuck, 0.60);
-            }
-        }
 
         // distribution of facets ratio based on roughness
         float D = distribFunc(fs_Nor, w_h, roughness);
