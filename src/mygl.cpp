@@ -1,10 +1,12 @@
 #include "mygl.h"
 
-#include <iostream>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include "shader.h"
 #include "mesh.h"
+
+#include <glm/gtc/matrix_transform.hpp>
+#include <iostream>
 
 MyGL::MyGL()
 {
@@ -16,17 +18,45 @@ MyGL::~MyGL()
     // clean up
 }
 
+// camera
+const int WIDTH = 800;
+const int HEIGHT = 600;
+Camera camera(800, 600);
+
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     glViewport(0, 0, width, height);
+
+    // update the camera's width and height
+    camera.setWidth(width);
+    camera.setHeight(height);
 }
 
-void processInput(GLFWwindow* window)
+void processInput(GLFWwindow* window, Camera& camera, float deltaTime)
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
     {
         glfwSetWindowShouldClose(window, true);
     }
+
+    float cameraSpeed = 5.0f * deltaTime;
+
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        camera.translateForward(cameraSpeed);
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        camera.translateForward(-cameraSpeed);
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        camera.translateRight(-cameraSpeed);
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        camera.translateRight(cameraSpeed);
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+        camera.translateUp(-cameraSpeed);
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+        camera.translateUp(cameraSpeed);
+    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+        camera.rotateRight(-cameraSpeed);
+    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+        camera.rotateRight(cameraSpeed);
 }
 
 void MyGL::init() 
@@ -39,7 +69,7 @@ void MyGL::init()
     //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     
     // window creation
-    GLFWwindow* window = glfwCreateWindow(800, 600, "LearnOpenGL", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "NGEN 0.0", NULL, NULL);
     if (window == NULL)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -57,73 +87,48 @@ void MyGL::init()
         return;
     }
 
-    // shader program
+    // load our scene
     Shader ourShader("../shaders/vert.glsl", "../shaders/frag.glsl");
+    Mesh ourMesh;
+    ourMesh.LoadObj("../models/teapot.obj");
+    ourMesh.create();
 
-    // leave this shit code for now
-    float vertices[] = {
-        // position data        -- NOW WE PASS IN COLOR DATA :D
-        -0.5f, -0.5f, 0.0f,     1.0f, 0.0f, 0.0f, // bottom left
-        0.5f,  -0.5f, 0.0f,     0.0f, 1.0f, 0.0f, // bottom right
-        -0.5f,  0.5f, 0.0f,     0.0f, 0.0f, 1.0f, // top left
-        0.5f,   0.5f, 0.0f,     1.0f, 1.0f, 1.0f, // top right 
-    };
-
-    unsigned int indices[] = {
-        0, 1, 2,
-        1, 2, 3
-    };
-
-    unsigned int VBO;
-    unsigned int VAO;
-    unsigned int EBO;
-
-    glGenBuffers(1, &VBO);
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &EBO);
-
-    // full process:
-    glBindVertexArray(VAO);
-
-    // copy vertices to the VBO
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    // bind indices
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-    // linking vertex attributes
-    // -> first param: position (layout=0, remember)
-    // -> second param: size of vertex attrib, in this case a float3 right
-    // -> third param: type of data
-    // -> fourth param: normalize or not
-    // -> fifth param: size of stride, 3 * float in bytes
-    // -> OH it is the start of the data, so 0 for now
-    // input is the vertex attribute position for EnableVertexAttribArray
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    // last param is 3 because color data is 3 floats away from the beginning of the stride
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
+    float deltaTime = 0.0f;
+    float lastFrame = 0.0f;
 
     // render loop
     while (!glfwWindowShouldClose(window))
     {
         // input
-        processInput(window);
+        processInput(window, camera, deltaTime);
 
         // rendering commands here
+        glEnable(GL_DEPTH_TEST);  
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        float currentFrame = glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+
+        // camera
+        glm::mat4 model = glm::mat4(1.0f);
+        //  currentFrame
+        model = glm::rotate(model, currentFrame * glm::radians(50.0f), glm::vec3(0.5f, 1.0f, 0.0f));
+
+        glm::mat4 view = glm::mat4(1.0f);
+        view = camera.getViewMatrix();
+
+        glm::mat4 projection = glm::mat4(1.0f);
+        projection = camera.getProjectionMatrix();
+
+        // set some stuff
         ourShader.use();
-        glBindVertexArray(VAO);
-        //  if we have EBO, we use glDrawElements
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        ourShader.setMat4("model", model);
+        ourShader.setMat4("view", view);
+        ourShader.setMat4("projection", projection);
+
+        ourMesh.Draw();
 
         // check and call events and swap the buffers
         glfwSwapBuffers(window);
