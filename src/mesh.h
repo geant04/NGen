@@ -31,6 +31,8 @@ public:
     void Draw();
     void LoadObj(const char* path);
     void create();
+    void bindCubeMap(unsigned int cubemapID);
 private:
-    unsigned int VAO, VBO, EBO;
+    unsigned int VAO, VBO, EBO, cubemapID;
+    bool hasCubeMap;
 };

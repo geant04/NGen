@@ -137,10 +137,20 @@ void Mesh::LoadObj(const char* path)
     }
 }
 
+void Mesh::bindCubeMap(unsigned int cubemapID)
+{
+    this->cubemapID = cubemapID;
+    this->hasCubeMap = true;
+}
+
 // draw function
 void Mesh::Draw()
 {
     glBindVertexArray(VAO);
+    if (hasCubeMap) {
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapID);
+    }
     glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indices.size()), GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 }

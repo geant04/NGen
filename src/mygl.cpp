@@ -4,6 +4,10 @@
 #include <GLFW/glfw3.h>
 #include "shader.h"
 #include "mesh.h"
+#include "skybox.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb/stb_image.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
@@ -25,6 +29,10 @@ Camera camera(WIDTH, HEIGHT);
 glm::vec2 lastMousePos = glm::vec2(WIDTH / 2, HEIGHT / 2);
 bool firstMouse = true;
 bool mousePressed = false;
+
+// display settings
+bool turntable = true;
+bool angledTurn = true;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -137,8 +145,23 @@ void MyGL::init()
     }
 
     // load our scene
+
+    bool pbr = false;
+
+    Shader ourShader;
+
+    if (pbr) {
+        ourShader = Shader("../shaders/pbr/pbrvert.glsl", "../shaders/pbr/pbrfrag.glsl");
+    } else {
+        ourShader = Shader("../shaders/basic/vert.glsl", "../shaders/basic/frag.glsl");
+        ourShader.setInt("envMap", 0);
+    }
+
+    // this shader is for simple rendering
     //Shader ourShader("../shaders/vert.glsl", "../shaders/frag.glsl");
-    Shader ourShader("../shaders/pbrvert.glsl", "../shaders/pbrfrag.glsl");
+    // this shader is for PBR rendering
+    //Shader ourShader("../shaders/pbrvert.glsl", "../shaders/pbrfrag.glsl");
+
     Mesh ourMesh;
     ourMesh.LoadObj("../models/teapot.obj");
     ourMesh.create();
@@ -147,10 +170,24 @@ void MyGL::init()
     float lastFrame = 0.0f;
 
     // constants for the shader
-    glm::vec3 u_Albedo = glm::vec3(0.5f, 0.0f, 0.0f);
+    glm::vec3 u_Albedo = glm::vec3(1.0f, 1.0f, 1.0f);
     float u_Roughness = 0.2f;
-    float u_Metallic = 0.5f;
+    float u_Metallic = 0.2f;
     float u_AmbientOcclusion = 1.0f;
+
+    // skybox time
+    std::string skyboxName = "betterSkybox";
+    std::vector<std::string> faces {
+        "../textures/skybox/" + skyboxName + "/right.jpg",
+        "../textures/skybox/" + skyboxName + "/left.jpg",
+        "../textures/skybox/" + skyboxName + "/top.jpg",
+        "../textures/skybox/" + skyboxName + "/bottom.jpg",
+        "../textures/skybox/" + skyboxName + "/front.jpg",
+        "../textures/skybox/" + skyboxName + "/back.jpg"
+    };
+    Skybox skybox;
+    skybox.loadCubemap(faces);
+    ourMesh.bindCubeMap(skybox.getCubemap());
 
     // render loop
     while (!glfwWindowShouldClose(window))
@@ -172,7 +209,22 @@ void MyGL::init()
         
         // teapot is a bit big
         model = glm::scale(model, glm::vec3(0.10f));
-        model = glm::rotate(model, currentFrame * glm::radians(50.0f), glm::vec3(0.25f, 1.0f, 0.0f));
+
+        glm::vec3 axis = glm::vec3(0.0f, 1.0f, 0.0f);
+        float theta = glm::radians(50.0f);
+
+        if (angledTurn) {
+            axis.x = 0.2f;
+        }
+
+        if (turntable) {
+            theta *= currentFrame;
+        }
+
+        if (angledTurn || turntable)
+        {
+            model = glm::rotate(model, theta, axis);
+        }
 
         glm::mat4 view = glm::mat4(1.0f);
         view = camera.getViewMatrix();
@@ -193,6 +245,9 @@ void MyGL::init()
         ourShader.setFloat("u_AmbientOcclusion", u_AmbientOcclusion);
 
         ourMesh.Draw();
+
+        // render the skybox
+        skybox.draw(view, projection);
 
         // check and call events and swap the buffers
         glfwSwapBuffers(window);

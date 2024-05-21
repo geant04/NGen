@@ -20,9 +20,9 @@ const vec3 light_pos[4] = vec3[](vec3(-10, 10, -10),
 // vec3(0, 10, 5) is pretty decent
 
 const vec3 light_col[4] = vec3[](vec3(300.f, 300.f, 300.f) * 4,
-                                 vec3(300.f, 300.f, 300.f) * 1,
-                                 vec3(300.f, 300.f, 300.f) * 1,
-                                 vec3(300.f, 300.f, 300.f) * 1);
+                                 vec3(0.f, 300.f, 300.f) * 1,
+                                 vec3(300.f, 0.f, 300.f) * 1,
+                                 vec3(300.f, 300.f, 0.f) * 1);
 
 const float PI = 3.14159f;
 
@@ -103,18 +103,14 @@ void main()
         // fresnel reflectance
         vec3 f_0 = mix(vec3(0.04f), albedo, metallic);
         vec3 F = fresnelSchlick(max(dot(w_h, w_o), 0.0), f_0);
-
-        vec3 f_cookTorrance = (D*G*F) / (4.0f * max(dot(fs_Nor, w_o), 0.) * max(dot(fs_Nor, w_i), 0.) + 0.0001f);
-
-        // overall color should be kd * lamb + ks * cook_torrance -- note that ks = Fresnel
-        // so in reality it should actually be kd(albedo/pi) + DFG/(4 dot (w_o, n) * dot(w_i, n))
+        vec3 k_s = (D*G*F) / (4.0f * max(dot(fs_Nor, w_o), 0.) * max(dot(fs_Nor, w_i), 0.) + 0.0001f);
 
         vec3 k_d = vec3(1.0f) - F;
         k_d *= (1.0f - metallic);
 
         vec3 f_lambert = (albedo / PI);
 
-        vec3 f = k_d * f_lambert + f_cookTorrance;
+        vec3 f = k_d * f_lambert + k_s;
 
         // irradiance is l_i, bsdf is bsdf, pdf = 1.0, and account for the lambert
         Lo += f * irradiance * max(dot(w_i, fs_Nor), 0.);
