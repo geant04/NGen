@@ -9,6 +9,7 @@
                 "-std=c++17",
                 "-I${workspaceFolder}/include",
                 "-L${workspaceFolder}/lib",
+                "${workspaceFolder}/include/imgui/*.cpp",
                 "${workspaceFolder}/src/*.cpp",
                 "${workspaceFolder}/src/tiny_obj_loader.cc",
                 "${workspaceFolder}/src/glad.c",

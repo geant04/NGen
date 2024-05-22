@@ -5,12 +5,18 @@
 #include "shader.h"
 #include "mesh.h"
 #include "skybox.h"
+#include "texture.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
+
+// imgui
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_glfw.h"
+#include "imgui/imgui_impl_opengl3.h"
 
 MyGL::MyGL()
 {
@@ -29,10 +35,11 @@ Camera camera(WIDTH, HEIGHT);
 glm::vec2 lastMousePos = glm::vec2(WIDTH / 2, HEIGHT / 2);
 bool firstMouse = true;
 bool mousePressed = false;
+bool wantCapture = false;
 
 // display settings
-bool turntable = true;
-bool angledTurn = true;
+bool turntable = false;
+bool angledTurn = false;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -93,7 +100,7 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
     float sensitivity = 0.2f;
     offset *= sensitivity;
 
-    if (mousePressed)
+    if (mousePressed && !wantCapture)
     {
         camera.rotatePhi(-offset.x);
         camera.rotateTheta(-offset.y);
@@ -146,14 +153,46 @@ void MyGL::init()
 
     // load our scene
 
-    bool pbr = false;
+    bool pbr = true;
 
     Shader ourShader;
 
+    Texture2D albedoMap;
+    Texture2D normalMap;
+    Texture2D metallicMap;
+    Texture2D roughnessMap;
+
+    // constants for the shader
+    glm::vec3 u_Albedo = glm::vec3(0.5f, 0.0f, 0.0f);
+    float u_Roughness = 0.5f;
+    float u_Metallic = 0.5f;
+    float u_AmbientOcclusion = 1.0f;
+    float color[3] = {u_Albedo.r, u_Albedo.g, u_Albedo.b};
+
     if (pbr) {
-        ourShader = Shader("../shaders/pbr/pbrvert.glsl", "../shaders/pbr/pbrfrag.glsl");
+        ourShader = Shader("shaders/pbr/pbrvert.glsl", "shaders/pbr/pbrfrag.glsl");
+        ourShader.setInt("u_AlbedoMap", 0);
+        ourShader.setInt("u_NormalMap", 1);
+        ourShader.setInt("u_MetallicMap", 2);
+        ourShader.setInt("u_RoughnessMap", 3);
+
+        //load textures
+        // albedoMap.loadTexture("textures/pbr/rustediron2_basecolor.png");
+        // normalMap.loadTexture("textures/pbr/rustediron2_normal.png");
+        // metallicMap.loadTexture("textures/pbr/rustediron2_metallic.png");
+        // roughnessMap.loadTexture("textures/pbr/rustediron2_roughness.png");
+
+        // albedoMap.loadTexture("textures/pbrCopper/Copper-scuffed_basecolor-boosted.png");
+        // normalMap.loadTexture("textures/pbrCopper/Copper-scuffed_normal.png");
+        // metallicMap.loadTexture("textures/pbrCopper/Copper-scuffed_metallic.png");
+        // roughnessMap.loadTexture("textures/pbrCopper/Copper-scuffed_roughness.png");
+
+        albedoMap.loadTexture("textures/pbrWood/mahogfloor_basecolor.png");
+        normalMap.loadTexture("textures/pbrWood/mahogfloor_normal.png");
+        roughnessMap.loadTexture("textures/pbrWood/mahogfloor_roughness.png");
+
     } else {
-        ourShader = Shader("../shaders/basic/vert.glsl", "../shaders/basic/frag.glsl");
+        ourShader = Shader("shaders/basic/vert.glsl", "shaders/basic/frag.glsl");
         ourShader.setInt("envMap", 0);
     }
 
@@ -163,31 +202,35 @@ void MyGL::init()
     //Shader ourShader("../shaders/pbrvert.glsl", "../shaders/pbrfrag.glsl");
 
     Mesh ourMesh;
-    ourMesh.LoadObj("../models/teapot.obj");
+    std::string modelName = "teapot";
+    std::string modelPath = "models/" + modelName + ".obj";
+    ourMesh.LoadObj(modelPath.c_str());
     ourMesh.create();
 
     float deltaTime = 0.0f;
     float lastFrame = 0.0f;
 
-    // constants for the shader
-    glm::vec3 u_Albedo = glm::vec3(1.0f, 1.0f, 1.0f);
-    float u_Roughness = 0.2f;
-    float u_Metallic = 0.2f;
-    float u_AmbientOcclusion = 1.0f;
-
     // skybox time
     std::string skyboxName = "betterSkybox";
     std::vector<std::string> faces {
-        "../textures/skybox/" + skyboxName + "/right.jpg",
-        "../textures/skybox/" + skyboxName + "/left.jpg",
-        "../textures/skybox/" + skyboxName + "/top.jpg",
-        "../textures/skybox/" + skyboxName + "/bottom.jpg",
-        "../textures/skybox/" + skyboxName + "/front.jpg",
-        "../textures/skybox/" + skyboxName + "/back.jpg"
+        "textures/skybox/" + skyboxName + "/right.jpg",
+        "textures/skybox/" + skyboxName + "/left.jpg",
+        "textures/skybox/" + skyboxName + "/top.jpg",
+        "textures/skybox/" + skyboxName + "/bottom.jpg",
+        "textures/skybox/" + skyboxName + "/front.jpg",
+        "textures/skybox/" + skyboxName + "/back.jpg"
     };
-    Skybox skybox;
-    skybox.loadCubemap(faces);
-    ourMesh.bindCubeMap(skybox.getCubemap());
+    //Skybox skybox;
+    //skybox.loadCubemap(faces);
+    //ourMesh.bindCubeMap(skybox.getCubemap());
+
+    // iniitalize imgui
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    ImGui::StyleColorsDark();
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 330");
 
     // render loop
     while (!glfwWindowShouldClose(window))
@@ -200,6 +243,13 @@ void MyGL::init()
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        // imgui
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+        
+        wantCapture = io.WantCaptureMouse;
+
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
@@ -208,7 +258,10 @@ void MyGL::init()
         glm::mat4 model = glm::mat4(1.0f);
         
         // teapot is a bit big
-        model = glm::scale(model, glm::vec3(0.10f));
+        if (!modelName.compare("teapot"))
+        {
+            model = glm::scale(model, glm::vec3(0.15f));
+        }
 
         glm::vec3 axis = glm::vec3(0.0f, 1.0f, 0.0f);
         float theta = glm::radians(50.0f);
@@ -244,16 +297,55 @@ void MyGL::init()
         ourShader.setFloat("u_Metallic", u_Metallic);
         ourShader.setFloat("u_AmbientOcclusion", u_AmbientOcclusion);
 
+        ourShader.setInt("u_AlbedoMap", 0);
+        ourShader.setInt("u_NormalMap", 1);
+        ourShader.setInt("u_MetallicMap", 2);
+        ourShader.setInt("u_RoughnessMap", 3);
+
+        if (pbr)
+        {
+            // bind textures for PBR
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, albedoMap.getTextureID());
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, normalMap.getTextureID());
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, metallicMap.getTextureID());
+            glActiveTexture(GL_TEXTURE3);
+            glBindTexture(GL_TEXTURE_2D, roughnessMap.getTextureID());
+            // there should be a slot for AO map but it's simply white
+        }
+
         ourMesh.Draw();
 
         // render the skybox
-        skybox.draw(view, projection);
+        //skybox.draw(view, projection);
+
+        ImGui::Begin("Settings");
+        ImGui::Text("Camera");
+        ImGui::ColorEdit3("Albedo", color);
+        ImGui::SliderFloat("Roughness", &u_Roughness, 0.0f, 1.0f);
+        ImGui::SliderFloat("Metallic", &u_Metallic, 0.0f, 1.0f);
+        ImGui::SliderFloat("Ambient Occlusion", &u_AmbientOcclusion, 0.0f, 1.0f);
+        ImGui::Checkbox("Turntable", &turntable);
+        ImGui::Checkbox("Angled Turn", &angledTurn);
+        ImGui::End();
+
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+        u_Albedo = glm::vec3(color[0], color[1], color[2]);
 
         // check and call events and swap the buffers
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
+    // imgui cleanup
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+    
     // clean up
     glfwTerminate();
 }

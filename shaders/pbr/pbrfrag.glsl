@@ -7,6 +7,11 @@ uniform float u_Metallic;
 uniform float u_Roughness;
 uniform float u_AmbientOcclusion;
 
+uniform sampler2D u_AlbedoMap;
+uniform sampler2D u_NormalMap;
+uniform sampler2D u_MetallicMap;
+uniform sampler2D u_RoughnessMap;
+
 in vec3 fs_Nor;
 in vec3 fs_Pos;
 in vec2 fs_UV;
@@ -15,6 +20,11 @@ const vec3 light_pos[4] = vec3[](vec3(-10, 10, -10),
                                  vec3(10, 10, -10),
                                  vec3(-10, -10, -10),
                                  vec3(10, -10, -10));
+
+// const vec3 light_pos[4] = vec3[](vec3(1.25, 1.0, -2),
+//                                  vec3(0, 10, 0),
+//                                  vec3(0, 10, 0),
+//                                  vec3(0, 10, 0));
 
 // vec3(0, 10, 0) is a more dramatic angle ig
 // vec3(0, 10, 5) is pretty decent
@@ -71,12 +81,36 @@ vec3 glint(vec3 w_h, float targetNDF, float maxNDF, vec2 uv, vec2 duvdx, vec2 du
     return vec3(0.);
 }
 
+vec3 getNormalFromMap()
+{
+    vec3 tangentNormal = texture(u_NormalMap, fs_UV).xyz * 2.0 - 1.0;
+
+    vec3 Q1  = dFdx(fs_Pos);
+    vec3 Q2  = dFdy(fs_Pos);
+    vec2 st1 = dFdx(fs_UV);
+    vec2 st2 = dFdy(fs_UV);
+
+    vec3 N   = normalize(fs_Nor);
+    vec3 T  = normalize(Q1*st2.t - Q2*st1.t);
+    vec3 B  = -normalize(cross(N, T));
+    mat3 TBN = mat3(T, B, N);
+
+    return normalize(TBN * tangentNormal);
+}
 
 void main()
 {
     vec3 albedo = u_Albedo;
     float roughness = u_Roughness;
     float metallic = u_Metallic;
+    vec3 normal = fs_Nor;
+
+    // add normal mapping?
+    
+    albedo = pow(texture(u_AlbedoMap, fs_UV).rgb, vec3(2.2));
+    normal = getNormalFromMap();
+    roughness = texture(u_RoughnessMap, fs_UV).r;
+    metallic = texture(u_MetallicMap, fs_UV).r;
 
     vec3 Lo = vec3(0.);
     vec3 intensity = 0.03f * u_AmbientOcclusion * albedo;
@@ -94,16 +128,16 @@ void main()
         vec3 w_h = normalize((w_o + w_i) / 2.0f);
 
         // distribution of facets ratio based on roughness
-        float D = distribFunc(fs_Nor, w_h, roughness);
+        float D = distribFunc(normal, w_h, roughness);
 
         // geometric attenuation (self occluding)
         float k = pow(roughness + 1.0f, 2.f) / 8.0f;
-        float G = geometricAtten(fs_Nor, w_o, w_i, k);
+        float G = geometricAtten(normal, w_o, w_i, k);
 
         // fresnel reflectance
         vec3 f_0 = mix(vec3(0.04f), albedo, metallic);
         vec3 F = fresnelSchlick(max(dot(w_h, w_o), 0.0), f_0);
-        vec3 k_s = (D*G*F) / (4.0f * max(dot(fs_Nor, w_o), 0.) * max(dot(fs_Nor, w_i), 0.) + 0.0001f);
+        vec3 k_s = (D*G*F) / (4.0f * max(dot(normal, w_o), 0.) * max(dot(normal, w_i), 0.) + 0.0001f);
 
         vec3 k_d = vec3(1.0f) - F;
         k_d *= (1.0f - metallic);
@@ -113,7 +147,7 @@ void main()
         vec3 f = k_d * f_lambert + k_s;
 
         // irradiance is l_i, bsdf is bsdf, pdf = 1.0, and account for the lambert
-        Lo += f * irradiance * max(dot(w_i, fs_Nor), 0.);
+        Lo += f * irradiance * max(dot(w_i, normal), 0.);
     }
     Lo += intensity;
 
@@ -121,5 +155,5 @@ void main()
     float gamma = 2.2f;
     Lo = pow(Lo, vec3(1.0 / gamma));
 
-    out_Col = vec4(Lo, 1.);
+    out_Col = vec4(Lo, 1.0);
 }

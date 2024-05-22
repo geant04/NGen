@@ -9,7 +9,7 @@ in vec3 fs_pos;
 
 void main()
 {
-    vec3 albedo = vec3(0.9, 0.5, 0.5);
+    vec3 albedo = vec3(0.9, 0.9, 0.9);
     vec3 lightPos = vec3(0.0, 5.0, 5.0);
     vec3 diffuse_li = vec3(1.0, 1.0, 1.0);
     vec3 specular_li = vec3(1.0, 1.0, 1.0);
@@ -25,12 +25,13 @@ void main()
     // valve's half-lambert approximation, not physically correct
     float lambert = dot(normal, lightDir) * 0.50 + 0.50;
 
-    vec3 diffuse_lo = lambert * diffuse_li;
+    //lambert *
+    vec3 diffuse_lo = diffuse_li;
 
     // phong model
     vec3 h = normalize(lightDir + wo);
     float spec = pow(max(dot(normal, h), 0.0), 32.0);
-    vec3 specular_lo = specular_li * spec * 0.5;
+    vec3 specular_lo = specular_li * spec * 1.0;
 
     vec3 outColor = diffuse_lo * albedo + specular_lo;
     //outColor *= albedo;

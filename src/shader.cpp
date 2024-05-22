@@ -99,7 +99,12 @@ void Shader::setBool(const std::string &name, bool value) const
 
 void Shader::setInt(const std::string &name, int value) const
 {
-    glUniform1i(glGetUniformLocation(ID, name.c_str()), value);
+    GLint uniformLocation = glGetUniformLocation(ID, name.c_str());
+    if (uniformLocation == -1) {
+        std::cerr << "Uniform '" << name << "' not found in shader program" << std::endl;
+        // Handle the error, such as returning early or throwing an exception
+    }
+    glUniform1i(uniformLocation, value);
 }
 
 void Shader::setFloat(const std::string &name, float value) const

@@ -4,7 +4,7 @@
 
 Skybox::Skybox()
 {
-    skyboxShader = Shader("../shaders/skybox.vert.glsl", "../shaders/skybox.frag.glsl");
+    skyboxShader = Shader("shaders/skybox.vert.glsl", "shaders/skybox.frag.glsl");
     skyboxShader.setInt("skybox", 0);
 
     float skyboxVertices[] = {
