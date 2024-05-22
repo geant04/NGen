@@ -12,6 +12,11 @@ uniform sampler2D u_NormalMap;
 uniform sampler2D u_MetallicMap;
 uniform sampler2D u_RoughnessMap;
 
+uniform bool u_UseAlbedoMap;
+uniform bool u_UseNormalMap;
+uniform bool u_UseMetallicMap;
+uniform bool u_UseRoughnessMap;
+
 in vec3 fs_Nor;
 in vec3 fs_Pos;
 in vec2 fs_UV;
@@ -107,10 +112,15 @@ void main()
 
     // add normal mapping?
     
-    albedo = pow(texture(u_AlbedoMap, fs_UV).rgb, vec3(2.2));
-    normal = getNormalFromMap();
-    roughness = texture(u_RoughnessMap, fs_UV).r;
-    metallic = texture(u_MetallicMap, fs_UV).r;
+    if (u_UseAlbedoMap) albedo = pow(texture(u_AlbedoMap, fs_UV).rgb, vec3(2.2));
+    if (u_UseNormalMap) normal = getNormalFromMap();
+    if (u_UseRoughnessMap) roughness = texture(u_RoughnessMap, fs_UV).r;
+    if (u_UseMetallicMap) metallic = texture(u_MetallicMap, fs_UV).r;
+
+    // albedo = pow(texture(u_AlbedoMap, fs_UV).rgb, vec3(2.2));
+    // normal = getNormalFromMap();
+    // roughness = texture(u_RoughnessMap, fs_UV).r;
+    // metallic = texture(u_MetallicMap, fs_UV).r;
 
     vec3 Lo = vec3(0.);
     vec3 intensity = 0.03f * u_AmbientOcclusion * albedo;

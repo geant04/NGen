@@ -168,6 +168,12 @@ void MyGL::init()
     float u_Metallic = 0.5f;
     float u_AmbientOcclusion = 1.0f;
     float color[3] = {u_Albedo.r, u_Albedo.g, u_Albedo.b};
+    float background[3] = {0.0f, 0.0f, 0.0f};
+
+    bool useAlbedoMap = true;
+    bool useNormalMap = true;
+    bool useMetallicMap = true;
+    bool useRoughnessMap = true;
 
     if (pbr) {
         ourShader = Shader("shaders/pbr/pbrvert.glsl", "shaders/pbr/pbrfrag.glsl");
@@ -176,20 +182,30 @@ void MyGL::init()
         ourShader.setInt("u_MetallicMap", 2);
         ourShader.setInt("u_RoughnessMap", 3);
 
+        ourShader.setBool("u_UseAlbedoMap", useAlbedoMap);
+        ourShader.setBool("u_UseNormalMap", useNormalMap);
+        ourShader.setBool("u_UseMetallicMap", useMetallicMap);
+        ourShader.setBool("u_UseRoughnessMap", useRoughnessMap);
+
         //load textures
         // albedoMap.loadTexture("textures/pbr/rustediron2_basecolor.png");
         // normalMap.loadTexture("textures/pbr/rustediron2_normal.png");
         // metallicMap.loadTexture("textures/pbr/rustediron2_metallic.png");
         // roughnessMap.loadTexture("textures/pbr/rustediron2_roughness.png");
 
-        // albedoMap.loadTexture("textures/pbrCopper/Copper-scuffed_basecolor-boosted.png");
+        //albedoMap.loadTexture("textures/pbrCopper/Copper-scuffed_basecolor-boosted.png");
         // normalMap.loadTexture("textures/pbrCopper/Copper-scuffed_normal.png");
         // metallicMap.loadTexture("textures/pbrCopper/Copper-scuffed_metallic.png");
         // roughnessMap.loadTexture("textures/pbrCopper/Copper-scuffed_roughness.png");
 
-        albedoMap.loadTexture("textures/pbrWood/mahogfloor_basecolor.png");
-        normalMap.loadTexture("textures/pbrWood/mahogfloor_normal.png");
-        roughnessMap.loadTexture("textures/pbrWood/mahogfloor_roughness.png");
+        albedoMap.loadTexture("textures/cync/cazas_texture.png");
+        normalMap.loadTexture("textures/pbrCopper/Copper-scuffed_normal.png");
+        metallicMap.loadTexture("textures/pbrCopper/Copper-scuffed_metallic.png");
+        roughnessMap.loadTexture("textures/pbrCopper/Copper-scuffed_roughness.png");
+
+        // albedoMap.loadTexture("textures/pbrWood/mahogfloor_basecolor.png");
+        // normalMap.loadTexture("textures/pbrWood/mahogfloor_normal.png");
+        // roughnessMap.loadTexture("textures/pbrWood/mahogfloor_roughness.png");
 
     } else {
         ourShader = Shader("shaders/basic/vert.glsl", "shaders/basic/frag.glsl");
@@ -202,7 +218,7 @@ void MyGL::init()
     //Shader ourShader("../shaders/pbrvert.glsl", "../shaders/pbrfrag.glsl");
 
     Mesh ourMesh;
-    std::string modelName = "teapot";
+    std::string modelName = "CAZAS";
     std::string modelPath = "models/" + modelName + ".obj";
     ourMesh.LoadObj(modelPath.c_str());
     ourMesh.create();
@@ -240,7 +256,7 @@ void MyGL::init()
 
         // rendering commands here
         glEnable(GL_DEPTH_TEST);  
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClearColor(background[0], background[1], background[2], 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // imgui
@@ -261,6 +277,11 @@ void MyGL::init()
         if (!modelName.compare("teapot"))
         {
             model = glm::scale(model, glm::vec3(0.15f));
+        }
+
+        if (!modelName.compare("itme"))
+        {
+            model = glm::scale(model, glm::vec3(0.1f));
         }
 
         glm::vec3 axis = glm::vec3(0.0f, 1.0f, 0.0f);
@@ -301,6 +322,10 @@ void MyGL::init()
         ourShader.setInt("u_NormalMap", 1);
         ourShader.setInt("u_MetallicMap", 2);
         ourShader.setInt("u_RoughnessMap", 3);
+        ourShader.setBool("u_UseAlbedoMap", useAlbedoMap);
+        ourShader.setBool("u_UseNormalMap", useNormalMap);
+        ourShader.setBool("u_UseRoughnessMap", useRoughnessMap);
+        ourShader.setBool("u_UseMetallicMap", useMetallicMap);
 
         if (pbr)
         {
@@ -322,13 +347,19 @@ void MyGL::init()
         //skybox.draw(view, projection);
 
         ImGui::Begin("Settings");
-        ImGui::Text("Camera");
+        ImGui::Text("PBR Settings");
         ImGui::ColorEdit3("Albedo", color);
         ImGui::SliderFloat("Roughness", &u_Roughness, 0.0f, 1.0f);
         ImGui::SliderFloat("Metallic", &u_Metallic, 0.0f, 1.0f);
         ImGui::SliderFloat("Ambient Occlusion", &u_AmbientOcclusion, 0.0f, 1.0f);
+        ImGui::Checkbox("Albedo Map", &useAlbedoMap);
+        ImGui::Checkbox("Normal Map", &useNormalMap);
+        ImGui::Checkbox("Metallic Map", &useMetallicMap);
+        ImGui::Checkbox("Roughness Map", &useRoughnessMap);
+        ImGui::Text("Display Settings");
         ImGui::Checkbox("Turntable", &turntable);
         ImGui::Checkbox("Angled Turn", &angledTurn);
+        ImGui::ColorEdit3("Background", background);
         ImGui::End();
 
         ImGui::Render();
