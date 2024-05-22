@@ -7,8 +7,8 @@
 - [x] PBR pointlight shading
 - [X] Texture loading
 - [x] Cubemaps
-- [x] IBL Diffuse
-- [x] IBL Specular
+- [ ] IBL Diffuse
+- [ ] IBL Specular
 - [ ] Disney BSDF
 - [ ] SDFs?
 - [ ] Volumetric rendering for fun
