@@ -148,6 +148,7 @@ void Mesh::Draw()
 {
     glBindVertexArray(VAO);
     if (hasCubeMap) {
+        std::cout << "cubemap detected, bind" << std::endl;
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapID);
     }

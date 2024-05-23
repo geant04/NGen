@@ -152,10 +152,23 @@ void MyGL::init()
     }
 
     // load our scene
-
-    bool pbr = true;
+    bool pbr = false;
 
     Shader ourShader;
+
+    // skybox time
+    std::string skyboxName = "betterSkybox";
+    std::vector<std::string> faces {
+        "textures/skybox/" + skyboxName + "/right.jpg",
+        "textures/skybox/" + skyboxName + "/left.jpg",
+        "textures/skybox/" + skyboxName + "/top.jpg",
+        "textures/skybox/" + skyboxName + "/bottom.jpg",
+        "textures/skybox/" + skyboxName + "/front.jpg",
+        "textures/skybox/" + skyboxName + "/back.jpg"
+    };
+    //Skybox skybox;
+    //skybox.loadCubemap(faces);
+    //ourMesh.bindCubeMap(skybox.getCubemap());
 
     Texture2D albedoMap;
     Texture2D normalMap;
@@ -175,12 +188,17 @@ void MyGL::init()
     bool useMetallicMap = true;
     bool useRoughnessMap = true;
 
+    Skybox envMap;
+    envMap.loadCubemap(faces);
+    bool showEnv = true;
+
     if (pbr) {
         ourShader = Shader("shaders/pbr/pbrvert.glsl", "shaders/pbr/pbrfrag.glsl");
-        ourShader.setInt("u_AlbedoMap", 0);
-        ourShader.setInt("u_NormalMap", 1);
-        ourShader.setInt("u_MetallicMap", 2);
-        ourShader.setInt("u_RoughnessMap", 3);
+        ourShader.use();
+        ourShader.setInt("u_AlbedoMap", 3);
+        ourShader.setInt("u_NormalMap", 4);
+        ourShader.setInt("u_MetallicMap", 5);
+        ourShader.setInt("u_RoughnessMap", 6);
 
         ourShader.setBool("u_UseAlbedoMap", useAlbedoMap);
         ourShader.setBool("u_UseNormalMap", useNormalMap);
@@ -198,18 +216,34 @@ void MyGL::init()
         // metallicMap.loadTexture("textures/pbrCopper/Copper-scuffed_metallic.png");
         // roughnessMap.loadTexture("textures/pbrCopper/Copper-scuffed_roughness.png");
 
-        albedoMap.loadTexture("textures/cync/cazas_texture.png");
-        normalMap.loadTexture("textures/pbrCopper/Copper-scuffed_normal.png");
-        metallicMap.loadTexture("textures/pbrCopper/Copper-scuffed_metallic.png");
-        roughnessMap.loadTexture("textures/pbrCopper/Copper-scuffed_roughness.png");
+        // albedoMap.loadTexture("textures/cync/cazas_texture.png");
+        // normalMap.loadTexture("textures/pbrCopper/Copper-scuffed_normal.png");
+        // metallicMap.loadTexture("textures/pbrCopper/Copper-scuffed_metallic.png");
+        // roughnessMap.loadTexture("textures/pbrCopper/Copper-scuffed_roughness.png");
 
-        // albedoMap.loadTexture("textures/pbrWood/mahogfloor_basecolor.png");
-        // normalMap.loadTexture("textures/pbrWood/mahogfloor_normal.png");
-        // roughnessMap.loadTexture("textures/pbrWood/mahogfloor_roughness.png");
+        albedoMap.loadTexture("textures/pbrWood/mahogfloor_basecolor.png");
+        normalMap.loadTexture("textures/pbrWood/mahogfloor_normal.png");
+        roughnessMap.loadTexture("textures/pbrWood/mahogfloor_roughness.png");
+
+        //envMap.loadHDR("textures/hdr/hangar_interior_4k.hdr");
+        //senvMap.loadCubemap(faces);
+
+        // glm::mat4 projection = camera.getProjectionMatrix();
+        // ourShader.use();
+        // pbrShader.setMat4("projection", projection);
+        
+        // backgroundShader.use();
+        // backgroundShader.setMat4("projection", projection);
+
+        // then before rendering, configure the viewport to the original framebuffer's screen dimensions
+        // int scrWidth, scrHeight;
+        // glfwGetFramebufferSize(window, &scrWidth, &scrHeight);
+        // glViewport(0, 0, scrWidth, scrHeight);
 
     } else {
         ourShader = Shader("shaders/basic/vert.glsl", "shaders/basic/frag.glsl");
         ourShader.setInt("envMap", 0);
+        //envMap.loadCubemap(faces);
     }
 
     // this shader is for simple rendering
@@ -218,27 +252,13 @@ void MyGL::init()
     //Shader ourShader("../shaders/pbrvert.glsl", "../shaders/pbrfrag.glsl");
 
     Mesh ourMesh;
-    std::string modelName = "CAZAS";
+    std::string modelName = "teapot";
     std::string modelPath = "models/" + modelName + ".obj";
     ourMesh.LoadObj(modelPath.c_str());
     ourMesh.create();
 
     float deltaTime = 0.0f;
     float lastFrame = 0.0f;
-
-    // skybox time
-    std::string skyboxName = "betterSkybox";
-    std::vector<std::string> faces {
-        "textures/skybox/" + skyboxName + "/right.jpg",
-        "textures/skybox/" + skyboxName + "/left.jpg",
-        "textures/skybox/" + skyboxName + "/top.jpg",
-        "textures/skybox/" + skyboxName + "/bottom.jpg",
-        "textures/skybox/" + skyboxName + "/front.jpg",
-        "textures/skybox/" + skyboxName + "/back.jpg"
-    };
-    //Skybox skybox;
-    //skybox.loadCubemap(faces);
-    //ourMesh.bindCubeMap(skybox.getCubemap());
 
     // iniitalize imgui
     IMGUI_CHECKVERSION();
@@ -318,10 +338,6 @@ void MyGL::init()
         ourShader.setFloat("u_Metallic", u_Metallic);
         ourShader.setFloat("u_AmbientOcclusion", u_AmbientOcclusion);
 
-        ourShader.setInt("u_AlbedoMap", 0);
-        ourShader.setInt("u_NormalMap", 1);
-        ourShader.setInt("u_MetallicMap", 2);
-        ourShader.setInt("u_RoughnessMap", 3);
         ourShader.setBool("u_UseAlbedoMap", useAlbedoMap);
         ourShader.setBool("u_UseNormalMap", useNormalMap);
         ourShader.setBool("u_UseRoughnessMap", useRoughnessMap);
@@ -330,21 +346,25 @@ void MyGL::init()
         if (pbr)
         {
             // bind textures for PBR
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, albedoMap.getTextureID());
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, normalMap.getTextureID());
-            glActiveTexture(GL_TEXTURE2);
-            glBindTexture(GL_TEXTURE_2D, metallicMap.getTextureID());
             glActiveTexture(GL_TEXTURE3);
+            glBindTexture(GL_TEXTURE_2D, albedoMap.getTextureID());
+            glActiveTexture(GL_TEXTURE4);
+            glBindTexture(GL_TEXTURE_2D, normalMap.getTextureID());
+            glActiveTexture(GL_TEXTURE5);
+            glBindTexture(GL_TEXTURE_2D, metallicMap.getTextureID());
+            glActiveTexture(GL_TEXTURE6);
             glBindTexture(GL_TEXTURE_2D, roughnessMap.getTextureID());
             // there should be a slot for AO map but it's simply white
         }
 
-        ourMesh.Draw();
+        //ourMesh.Draw();
 
         // render the skybox
         //skybox.draw(view, projection);
+        if (showEnv)
+        {
+            envMap.draw(view, projection);
+        }
 
         ImGui::Begin("Settings");
         ImGui::Text("PBR Settings");
@@ -359,6 +379,8 @@ void MyGL::init()
         ImGui::Text("Display Settings");
         ImGui::Checkbox("Turntable", &turntable);
         ImGui::Checkbox("Angled Turn", &angledTurn);
+        ImGui::Text("Background Settings");
+        ImGui::Checkbox("Show environment", &showEnv);
         ImGui::ColorEdit3("Background", background);
         ImGui::End();
 

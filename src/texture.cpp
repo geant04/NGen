@@ -35,6 +35,10 @@ void Texture2D::loadTexture(const char* texturePath)
 
         // bind texture, set parameters
         glBindTexture(GL_TEXTURE_2D, textureID);
+        GLenum error = glGetError();
+        if (error != GL_NO_ERROR) {
+            std::cerr << "OpenGL Error after trying to load in textureID: " << std::endl;
+        }
         glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
 

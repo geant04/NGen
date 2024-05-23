@@ -34,5 +34,5 @@ public:
     void bindCubeMap(unsigned int cubemapID);
 private:
     unsigned int VAO, VBO, EBO, cubemapID;
-    bool hasCubeMap;
+    bool hasCubeMap = false;
 };

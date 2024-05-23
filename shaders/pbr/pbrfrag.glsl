@@ -128,38 +128,42 @@ void main()
     // use this to toggle the epic sparkles
     bool sparkly = false;
 
-    for (int i = 0; i < 4; i++) {
-        vec3 diff = light_pos[i] - fs_Pos;
-        vec3 light_color = light_col[i];
-        vec3 irradiance = light_color / dot(diff, diff);
+    bool pointLight = true;
 
-        vec3 w_i = normalize(diff);
-        vec3 w_o = normalize(u_CamPos - fs_Pos);
-        vec3 w_h = normalize((w_o + w_i) / 2.0f);
+    if (pointLight) {
+        for (int i = 0; i < 4; i++) {
+            vec3 diff = light_pos[i] - fs_Pos;
+            vec3 light_color = light_col[i];
+            vec3 irradiance = light_color / dot(diff, diff);
 
-        // distribution of facets ratio based on roughness
-        float D = distribFunc(normal, w_h, roughness);
+            vec3 w_i = normalize(diff);
+            vec3 w_o = normalize(u_CamPos - fs_Pos);
+            vec3 w_h = normalize((w_o + w_i) / 2.0f);
 
-        // geometric attenuation (self occluding)
-        float k = pow(roughness + 1.0f, 2.f) / 8.0f;
-        float G = geometricAtten(normal, w_o, w_i, k);
+            // distribution of facets ratio based on roughness
+            float D = distribFunc(normal, w_h, roughness);
 
-        // fresnel reflectance
-        vec3 f_0 = mix(vec3(0.04f), albedo, metallic);
-        vec3 F = fresnelSchlick(max(dot(w_h, w_o), 0.0), f_0);
-        vec3 k_s = (D*G*F) / (4.0f * max(dot(normal, w_o), 0.) * max(dot(normal, w_i), 0.) + 0.0001f);
+            // geometric attenuation (self occluding)
+            float k = pow(roughness + 1.0f, 2.f) / 8.0f;
+            float G = geometricAtten(normal, w_o, w_i, k);
 
-        vec3 k_d = vec3(1.0f) - F;
-        k_d *= (1.0f - metallic);
+            // fresnel reflectance
+            vec3 f_0 = mix(vec3(0.04f), albedo, metallic);
+            vec3 F = fresnelSchlick(max(dot(w_h, w_o), 0.0), f_0);
+            vec3 k_s = (D*G*F) / (4.0f * max(dot(normal, w_o), 0.) * max(dot(normal, w_i), 0.) + 0.0001f);
 
-        vec3 f_lambert = (albedo / PI);
+            vec3 k_d = vec3(1.0f) - F;
+            k_d *= (1.0f - metallic);
 
-        vec3 f = k_d * f_lambert + k_s;
+            vec3 f_lambert = (albedo / PI);
 
-        // irradiance is l_i, bsdf is bsdf, pdf = 1.0, and account for the lambert
-        Lo += f * irradiance * max(dot(w_i, normal), 0.);
+            vec3 f = k_d * f_lambert + k_s;
+
+            // irradiance is l_i, bsdf is bsdf, pdf = 1.0, and account for the lambert
+            Lo += f * irradiance * max(dot(w_i, normal), 0.);
+        }
+        Lo += intensity;
     }
-    Lo += intensity;
 
     Lo = Lo / (vec3(1.0f) + Lo);
     float gamma = 2.2f;
