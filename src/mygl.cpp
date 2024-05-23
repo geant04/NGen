@@ -152,7 +152,7 @@ void MyGL::init()
     }
 
     // load our scene
-    bool pbr = false;
+    bool pbr = true;
 
     Shader ourShader;
 
@@ -256,6 +256,7 @@ void MyGL::init()
     std::string modelPath = "models/" + modelName + ".obj";
     ourMesh.LoadObj(modelPath.c_str());
     ourMesh.create();
+    bool showModel = true;
 
     float deltaTime = 0.0f;
     float lastFrame = 0.0f;
@@ -356,8 +357,11 @@ void MyGL::init()
             glBindTexture(GL_TEXTURE_2D, roughnessMap.getTextureID());
             // there should be a slot for AO map but it's simply white
         }
-
-        //ourMesh.Draw();
+        
+        if (showModel) 
+        {
+            ourMesh.Draw();
+        }
 
         // render the skybox
         //skybox.draw(view, projection);
@@ -377,6 +381,7 @@ void MyGL::init()
         ImGui::Checkbox("Metallic Map", &useMetallicMap);
         ImGui::Checkbox("Roughness Map", &useRoughnessMap);
         ImGui::Text("Display Settings");
+        ImGui::Checkbox("Show model", &showModel);
         ImGui::Checkbox("Turntable", &turntable);
         ImGui::Checkbox("Angled Turn", &angledTurn);
         ImGui::Text("Background Settings");
