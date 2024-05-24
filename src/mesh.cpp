@@ -39,7 +39,10 @@ void Mesh::create()
 }
 
 Mesh::Mesh()
-    : vertices(std::vector<Vertex>()), indices(std::vector<unsigned int>()), textures(std::vector<Texture>())
+    : vertices(std::vector<Vertex>()), 
+      indices(std::vector<unsigned int>()), textures(std::vector<Texture>()),
+      hasCubeMap(false),
+      hasIrradiance(false)
 {
     // normally i'd have create here but let's wait for a moment
     // this is for the obj loader
@@ -143,14 +146,49 @@ void Mesh::bindCubeMap(unsigned int cubemapID)
     this->hasCubeMap = true;
 }
 
+void Mesh::bindIrradianceMap(unsigned int irradianceID)
+{
+    this->irradianceID = irradianceID;
+    this->hasIrradiance = true;
+}
+
+void Mesh::bindSpecularMap(unsigned int specularID)
+{
+    this->specularID = specularID;
+    this->hasSpecular = true;
+}
+
+void Mesh::bindBrdfLUT(unsigned int brdfLUTID)
+{
+    this->brdfLUTID = brdfLUTID;
+    this->hasBRDFLUT = true;
+}
+
 // draw function
 void Mesh::Draw()
 {
     glBindVertexArray(VAO);
     if (hasCubeMap) {
+        std::cout << "cubemap detected, bind" << std::endl;
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapID);
     }
+    // GL_TEXTURE0 TO IRRADIANCE
+    // GL_TEXTURE1 TO SPECULAR
+    // GL_TEXTURE2 TO THE BRDF LUT
+    if (hasIrradiance)  {
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceID);
+    }
+    if (hasSpecular) {
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, specularID);
+    }
+    if (hasBRDFLUT) {
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, brdfLUTID);
+    }
+
     glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indices.size()), GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 }

@@ -17,6 +17,10 @@ uniform bool u_UseNormalMap;
 uniform bool u_UseMetallicMap;
 uniform bool u_UseRoughnessMap;
 
+uniform samplerCube u_IrradianceMap;
+uniform samplerCube u_SpecularMap;
+uniform sampler2D u_BRDFLUT;
+
 in vec3 fs_Nor;
 in vec3 fs_Pos;
 in vec2 fs_UV;
@@ -41,11 +45,11 @@ const vec3 light_col[4] = vec3[](vec3(300.f, 300.f, 300.f) * 4,
 
 const float PI = 3.14159f;
 
-float distribFunc(vec3 n, vec3 w_h, float roughness) {
+float distribFunc(vec3 n, vec3 wh, float roughness) {
     float alpha = roughness * roughness;
     float a2 = alpha * alpha;
 
-    float NdotH = max(dot(n, w_h), 0.0);
+    float NdotH = max(dot(n, wh), 0.0);
     float NdotH2 = NdotH * NdotH;
 
     float nom = a2;
@@ -75,7 +79,7 @@ vec3 fresnelSchlick(float theta, vec3 R) {
     return R + (max(vec3(1.f - u_Roughness), R) - R) * pow(1.f - theta, 5.0f);
 }
 
-vec3 glint(vec3 w_h, float targetNDF, float maxNDF, vec2 uv, vec2 duvdx, vec2 duvdy) {
+vec3 glint(vec3 wh, float targetNDF, float maxNDF, vec2 uv, vec2 duvdx, vec2 duvdy) {
     // modify the NDF to be matching of the glint ndf
     // sample a random theta, used for our bernoulli trials
     // temporal coherence: this is like basically going from one LOD to another LOD
@@ -128,38 +132,76 @@ void main()
     // use this to toggle the epic sparkles
     bool sparkly = false;
 
-    for (int i = 0; i < 4; i++) {
-        vec3 diff = light_pos[i] - fs_Pos;
-        vec3 light_color = light_col[i];
-        vec3 irradiance = light_color / dot(diff, diff);
+    bool pointLight = true;
 
-        vec3 w_i = normalize(diff);
-        vec3 w_o = normalize(u_CamPos - fs_Pos);
-        vec3 w_h = normalize((w_o + w_i) / 2.0f);
+    vec3 wo;
+    vec3 wi;
+    vec3 wh;
 
-        // distribution of facets ratio based on roughness
-        float D = distribFunc(normal, w_h, roughness);
+    // VARIABLES FOR TORRANCE-SPARROW
+    float D;
+    float G;
+    vec3 F;
 
-        // geometric attenuation (self occluding)
-        float k = pow(roughness + 1.0f, 2.f) / 8.0f;
-        float G = geometricAtten(normal, w_o, w_i, k);
+    // VARIABLES FOR KS FRESNEL
+    vec3 f_0 = mix(vec3(0.04f), albedo, metallic);
 
-        // fresnel reflectance
-        vec3 f_0 = mix(vec3(0.04f), albedo, metallic);
-        vec3 F = fresnelSchlick(max(dot(w_h, w_o), 0.0), f_0);
-        vec3 k_s = (D*G*F) / (4.0f * max(dot(normal, w_o), 0.) * max(dot(normal, w_i), 0.) + 0.0001f);
+    if (pointLight) {
+        for (int i = 0; i < 4; i++) {
+            vec3 diff = light_pos[i] - fs_Pos;
+            vec3 light_color = light_col[i];
+            vec3 irradiance = light_color / dot(diff, diff);
 
-        vec3 k_d = vec3(1.0f) - F;
-        k_d *= (1.0f - metallic);
+            wi = normalize(diff);
+            wo = normalize(u_CamPos - fs_Pos);
+            wh = normalize((wo + wi) / 2.0f);
 
-        vec3 f_lambert = (albedo / PI);
+            // distribution of facets ratio based on roughness
+            D = distribFunc(normal, wh, roughness);
 
-        vec3 f = k_d * f_lambert + k_s;
+            // geometric attenuation (self occluding)
+            float k = pow(roughness + 1.0f, 2.f) / 8.0f;
+            G = geometricAtten(normal, wo, wi, k);
 
-        // irradiance is l_i, bsdf is bsdf, pdf = 1.0, and account for the lambert
-        Lo += f * irradiance * max(dot(w_i, normal), 0.);
+            // fresnel reflectance
+            F = fresnelSchlick(max(dot(wh, wo), 0.0), f_0);
+            vec3 ks = (D*G*F) / (4.0f * max(dot(normal, wo), 0.) * max(dot(normal, wi), 0.) + 0.0001f);
+
+            vec3 kd = vec3(1.0f) - F;
+            kd *= (1.0f - metallic);
+
+            vec3 f_lambert = (albedo / PI);
+
+            vec3 f = kd * f_lambert + ks;
+
+            // irradiance is l_i, bsdf is bsdf, pdf = 1.0, and account for the lambert
+            Lo += f * irradiance * max(dot(wi, normal), 0.);
+        }
+        Lo += intensity;
     }
-    Lo += intensity;
+
+    wo = normalize(u_CamPos - fs_Pos);
+    wi = normalize(reflect(-wo, normal));
+    wh = normalize(normal);
+
+    // F, here for now because we do not have specular map yet
+    // normally kS = DGF / (etc), use a LUT for specular BRDF properties
+    F = fresnelSchlick(max(dot(wh, wo), 0.0), f_0);
+    vec3 kS = F;
+
+    // now to use our awesome diffuse irradiance map
+    vec3 kD = 1 - kS;
+    kD *= (1 - metallic);
+
+    vec3 diffuse_li = texture(u_IrradianceMap, normal).rgb;
+    vec3 diffuse_lo = diffuse_li * kD * albedo;
+
+    const float MAX_REFLECTION_LOD = 4.0;
+    vec3 specular_li = textureLod(u_SpecularMap, wi, roughness * MAX_REFLECTION_LOD).rgb;
+    vec2 envBRDF = texture(u_BRDFLUT, vec2(max(dot(wh, wo), 0.0), roughness)).rg;
+    vec3 specular_lo = specular_li * (F * envBRDF.x + envBRDF.y);
+
+    Lo += diffuse_lo + specular_lo;
 
     Lo = Lo / (vec3(1.0f) + Lo);
     float gamma = 2.2f;
