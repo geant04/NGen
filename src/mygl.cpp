@@ -151,6 +151,8 @@ void MyGL::init()
         return;
     }
 
+    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);  
+
     // load our scene
     bool pbr = true;
 
@@ -170,7 +172,7 @@ void MyGL::init()
     // Model loading
     // ------------------------------------------------
     Mesh ourMesh;
-    std::string modelName = "tahu";
+    std::string modelName = "sphere";
     std::string modelPath = "models/" + modelName + ".obj";
     ourMesh.LoadObj(modelPath.c_str());
     ourMesh.create();
@@ -198,7 +200,7 @@ void MyGL::init()
     bool useRoughnessMap = true;
 
     Skybox envMap;
-    envMap.loadCubemap(faces);
+    //envMap.loadCubemap(faces);
     bool showEnv = true;
 
     if (pbr) {
@@ -224,21 +226,21 @@ void MyGL::init()
         // metallicMap.loadTexture("textures/pbr/rustediron2_metallic.png");
         // roughnessMap.loadTexture("textures/pbr/rustediron2_roughness.png");
 
-        albedoMap.loadTexture("textures/pbrCopper/Copper-scuffed_basecolor-boosted.png");
-        normalMap.loadTexture("textures/pbrCopper/Copper-scuffed_normal.png");
-        metallicMap.loadTexture("textures/pbrCopper/Copper-scuffed_metallic.png");
-        roughnessMap.loadTexture("textures/pbrCopper/Copper-scuffed_roughness.png");
+        // albedoMap.loadTexture("textures/pbrCopper/Copper-scuffed_basecolor-boosted.png");
+        // normalMap.loadTexture("textures/pbrCopper/Copper-scuffed_normal.png");
+        // metallicMap.loadTexture("textures/pbrCopper/Copper-scuffed_metallic.png");
+        // roughnessMap.loadTexture("textures/pbrCopper/Copper-scuffed_roughness.png");
 
         // albedoMap.loadTexture("textures/cync/cazas_texture.png");
         // normalMap.loadTexture("textures/pbrCopper/Copper-scuffed_normal.png");
         // metallicMap.loadTexture("textures/pbrCopper/Copper-scuffed_metallic.png");
         // roughnessMap.loadTexture("textures/pbrCopper/Copper-scuffed_roughness.png");
 
-        // albedoMap.loadTexture("textures/pbrWood/mahogfloor_basecolor.png");
-        // normalMap.loadTexture("textures/pbrWood/mahogfloor_normal.png");
-        // roughnessMap.loadTexture("textures/pbrWood/mahogfloor_roughness.png");
+        albedoMap.loadTexture("textures/pbrWood/mahogfloor_basecolor.png");
+        normalMap.loadTexture("textures/pbrWood/mahogfloor_normal.png");
+        roughnessMap.loadTexture("textures/pbrWood/mahogfloor_roughness.png");
 
-        //envMap.loadHDR("textures/hdr/hangar_interior_4k.hdr");
+        envMap.loadHDR("textures/hdr/interior_atelier_soft_daylight.hdr");
         //senvMap.loadCubemap(faces);
 
         // glm::mat4 projection = camera.getProjectionMatrix();
