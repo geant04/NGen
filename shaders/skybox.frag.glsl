@@ -1,14 +1,14 @@
 #version 330 core
 out vec4 out_Col;
 
-in vec3 fs_texCoords;
+in vec3 fs_Pos;
 
 uniform samplerCube skybox;
 uniform bool u_isHDR;
 
 void main()
 {
-    out_Col = texture(skybox, fs_texCoords);
+    out_Col = texture(skybox, fs_Pos);
     // if (u_isHDR)
     // {
     //     // gamma corrections

@@ -240,11 +240,17 @@ void MyGL::init()
         // glfwGetFramebufferSize(window, &scrWidth, &scrHeight);
         // glViewport(0, 0, scrWidth, scrHeight);
 
+        envMap.createIrradianceMap();
+        ourShader.setInt("u_IrradianceMap", 0);
+
     } else {
         ourShader = Shader("shaders/basic/vert.glsl", "shaders/basic/frag.glsl");
         ourShader.setInt("envMap", 0);
         //envMap.loadCubemap(faces);
     }
+
+    // Model loading
+    // ------------------------------------------------
 
     // this shader is for simple rendering
     //Shader ourShader("../shaders/vert.glsl", "../shaders/frag.glsl");
@@ -258,10 +264,17 @@ void MyGL::init()
     ourMesh.create();
     bool showModel = true;
 
+    // Viewport resizing necessary after a bunch of the crap i did
+    // --------------------------
     float deltaTime = 0.0f;
     float lastFrame = 0.0f;
 
+    int scrWidth, scrHeight;
+    glfwGetFramebufferSize(window, &scrWidth, &scrHeight);
+    glViewport(0, 0, scrWidth, scrHeight);
+
     // iniitalize imgui
+    // --------------------------
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;

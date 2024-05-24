@@ -32,7 +32,9 @@ public:
     void LoadObj(const char* path);
     void create();
     void bindCubeMap(unsigned int cubemapID);
+    void bindIrradianceMap(unsigned int irradianceID);
 private:
-    unsigned int VAO, VBO, EBO, cubemapID;
-    bool hasCubeMap = false;
+    unsigned int VAO, VBO, EBO, cubemapID, irradianceID;
+    bool hasCubeMap;
+    bool hasIrradiance;
 };

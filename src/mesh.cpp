@@ -39,7 +39,10 @@ void Mesh::create()
 }
 
 Mesh::Mesh()
-    : vertices(std::vector<Vertex>()), indices(std::vector<unsigned int>()), textures(std::vector<Texture>())
+    : vertices(std::vector<Vertex>()), 
+      indices(std::vector<unsigned int>()), textures(std::vector<Texture>()),
+      hasCubeMap(false),
+      hasIrradiance(false)
 {
     // normally i'd have create here but let's wait for a moment
     // this is for the obj loader
@@ -143,6 +146,12 @@ void Mesh::bindCubeMap(unsigned int cubemapID)
     this->hasCubeMap = true;
 }
 
+void Mesh::bindIrradianceMap(unsigned int irradianceID)
+{
+    this->irradianceID = irradianceID;
+    this->hasIrradiance = true;
+}
+
 // draw function
 void Mesh::Draw()
 {
@@ -151,6 +160,10 @@ void Mesh::Draw()
         std::cout << "cubemap detected, bind" << std::endl;
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapID);
+    }
+    if (hasIrradiance)  {
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceID);
     }
     glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(indices.size()), GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
