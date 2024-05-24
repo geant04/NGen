@@ -172,7 +172,7 @@ void MyGL::init()
     // Model loading
     // ------------------------------------------------
     Mesh ourMesh;
-    std::string modelName = "sphere";
+    std::string modelName = "teapot";
     std::string modelPath = "models/" + modelName + ".obj";
     ourMesh.LoadObj(modelPath.c_str());
     ourMesh.create();
@@ -240,7 +240,7 @@ void MyGL::init()
         normalMap.loadTexture("textures/pbrWood/mahogfloor_normal.png");
         roughnessMap.loadTexture("textures/pbrWood/mahogfloor_roughness.png");
 
-        envMap.loadHDR("textures/hdr/interior_atelier_soft_daylight.hdr");
+        envMap.loadHDR("textures/hdr/hangar_interior_4k.hdr");
         //senvMap.loadCubemap(faces);
 
         // glm::mat4 projection = camera.getProjectionMatrix();
