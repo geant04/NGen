@@ -166,9 +166,18 @@ void MyGL::init()
         "textures/skybox/" + skyboxName + "/front.jpg",
         "textures/skybox/" + skyboxName + "/back.jpg"
     };
-    //Skybox skybox;
-    //skybox.loadCubemap(faces);
-    //ourMesh.bindCubeMap(skybox.getCubemap());
+
+    // Model loading
+    // ------------------------------------------------
+    Mesh ourMesh;
+    std::string modelName = "tahu";
+    std::string modelPath = "models/" + modelName + ".obj";
+    ourMesh.LoadObj(modelPath.c_str());
+    ourMesh.create();
+    bool showModel = true;
+
+    // PBR
+    // -------------------------------------------------
 
     Texture2D albedoMap;
     Texture2D normalMap;
@@ -204,6 +213,10 @@ void MyGL::init()
         ourShader.setBool("u_UseNormalMap", useNormalMap);
         ourShader.setBool("u_UseMetallicMap", useMetallicMap);
         ourShader.setBool("u_UseRoughnessMap", useRoughnessMap);
+        
+        ourShader.setInt("u_IrradianceMap", 0);
+        ourShader.setInt("u_SpecularMap", 1);
+        ourShader.setInt("u_BRDFLUT", 2);
 
         //load textures
         // albedoMap.loadTexture("textures/pbr/rustediron2_basecolor.png");
@@ -211,19 +224,19 @@ void MyGL::init()
         // metallicMap.loadTexture("textures/pbr/rustediron2_metallic.png");
         // roughnessMap.loadTexture("textures/pbr/rustediron2_roughness.png");
 
-        //albedoMap.loadTexture("textures/pbrCopper/Copper-scuffed_basecolor-boosted.png");
-        // normalMap.loadTexture("textures/pbrCopper/Copper-scuffed_normal.png");
-        // metallicMap.loadTexture("textures/pbrCopper/Copper-scuffed_metallic.png");
-        // roughnessMap.loadTexture("textures/pbrCopper/Copper-scuffed_roughness.png");
+        albedoMap.loadTexture("textures/pbrCopper/Copper-scuffed_basecolor-boosted.png");
+        normalMap.loadTexture("textures/pbrCopper/Copper-scuffed_normal.png");
+        metallicMap.loadTexture("textures/pbrCopper/Copper-scuffed_metallic.png");
+        roughnessMap.loadTexture("textures/pbrCopper/Copper-scuffed_roughness.png");
 
         // albedoMap.loadTexture("textures/cync/cazas_texture.png");
         // normalMap.loadTexture("textures/pbrCopper/Copper-scuffed_normal.png");
         // metallicMap.loadTexture("textures/pbrCopper/Copper-scuffed_metallic.png");
         // roughnessMap.loadTexture("textures/pbrCopper/Copper-scuffed_roughness.png");
 
-        albedoMap.loadTexture("textures/pbrWood/mahogfloor_basecolor.png");
-        normalMap.loadTexture("textures/pbrWood/mahogfloor_normal.png");
-        roughnessMap.loadTexture("textures/pbrWood/mahogfloor_roughness.png");
+        // albedoMap.loadTexture("textures/pbrWood/mahogfloor_basecolor.png");
+        // normalMap.loadTexture("textures/pbrWood/mahogfloor_normal.png");
+        // roughnessMap.loadTexture("textures/pbrWood/mahogfloor_roughness.png");
 
         //envMap.loadHDR("textures/hdr/hangar_interior_4k.hdr");
         //senvMap.loadCubemap(faces);
@@ -241,28 +254,20 @@ void MyGL::init()
         // glViewport(0, 0, scrWidth, scrHeight);
 
         envMap.createIrradianceMap();
-        ourShader.setInt("u_IrradianceMap", 0);
+        ourMesh.bindIrradianceMap(envMap.getIrradianceMap());
+
+        envMap.createSpecularMap();
+        ourMesh.bindSpecularMap(envMap.getSpecularMap());
+
+        // to be honest, I don't know the theory behind the LUT that well
+        envMap.createBRDFLUT();
+        ourMesh.bindBrdfLUT(envMap.getBRDFLUT());
 
     } else {
         ourShader = Shader("shaders/basic/vert.glsl", "shaders/basic/frag.glsl");
         ourShader.setInt("envMap", 0);
         //envMap.loadCubemap(faces);
     }
-
-    // Model loading
-    // ------------------------------------------------
-
-    // this shader is for simple rendering
-    //Shader ourShader("../shaders/vert.glsl", "../shaders/frag.glsl");
-    // this shader is for PBR rendering
-    //Shader ourShader("../shaders/pbrvert.glsl", "../shaders/pbrfrag.glsl");
-
-    Mesh ourMesh;
-    std::string modelName = "teapot";
-    std::string modelPath = "models/" + modelName + ".obj";
-    ourMesh.LoadObj(modelPath.c_str());
-    ourMesh.create();
-    bool showModel = true;
 
     // Viewport resizing necessary after a bunch of the crap i did
     // --------------------------

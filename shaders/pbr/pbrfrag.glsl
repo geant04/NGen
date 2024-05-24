@@ -18,6 +18,8 @@ uniform bool u_UseMetallicMap;
 uniform bool u_UseRoughnessMap;
 
 uniform samplerCube u_IrradianceMap;
+uniform samplerCube u_SpecularMap;
+uniform sampler2D u_BRDFLUT;
 
 in vec3 fs_Nor;
 in vec3 fs_Pos;
@@ -132,9 +134,9 @@ void main()
 
     bool pointLight = true;
 
-    vec3 wo = normalize(u_CamPos - fs_Pos);
-    vec3 wi = normalize(reflect(-wo, normal));
-    vec3 wh = normalize(normal);
+    vec3 wo;
+    vec3 wi;
+    vec3 wh;
 
     // VARIABLES FOR TORRANCE-SPARROW
     float D;
@@ -178,18 +180,28 @@ void main()
         Lo += intensity;
     }
 
+    wo = normalize(u_CamPos - fs_Pos);
+    wi = normalize(reflect(-wo, normal));
+    wh = normalize(normal);
+
     // F, here for now because we do not have specular map yet
     // normally kS = DGF / (etc), use a LUT for specular BRDF properties
-    vec3 kS = fresnelSchlick(max(dot(wh, wo), 0.0), f_0);
+    F = fresnelSchlick(max(dot(wh, wo), 0.0), f_0);
+    vec3 kS = F;
 
     // now to use our awesome diffuse irradiance map
     vec3 kD = 1 - kS;
     kD *= (1 - metallic);
-    
+
     vec3 diffuse_li = texture(u_IrradianceMap, normal).rgb;
     vec3 diffuse_lo = diffuse_li * kD * albedo;
 
-    Lo += diffuse_lo;
+    const float MAX_REFLECTION_LOD = 4.0;
+    vec3 specular_li = textureLod(u_SpecularMap, wi, roughness * MAX_REFLECTION_LOD).rgb;
+    vec2 envBRDF = texture(u_BRDFLUT, vec2(max(dot(wh, wo), 0.0), roughness)).rg;
+    vec3 specular_lo = specular_li * (F * envBRDF.x + envBRDF.y);
+
+    Lo += diffuse_lo + specular_lo;
 
     Lo = Lo / (vec3(1.0f) + Lo);
     float gamma = 2.2f;

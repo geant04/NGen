@@ -3,7 +3,8 @@
 #include <glad/glad.h>
 
 Skybox::Skybox()
-    : VAO(0), 
+    : VAO(0),
+      quadVAO(0),
       captureFBO(0),
       captureRBO(0),
       captureProjection(glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f))
@@ -84,7 +85,7 @@ void Skybox::buildCube()
     // step 1: create cube VAO
     // step 2: create skybox VAO???
 
-    // create the VAO, VBO, and EBO
+    // create the VAO, VBO
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
 
@@ -100,6 +101,41 @@ void Skybox::buildCube()
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 }
 
+void Skybox::renderQuad()
+{
+    if (quadVAO == 0)
+    {
+        float vertices[] = {
+            -1.0f,  1.0f, 0.0f, 0.0f, 1.0f, 
+            -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+             1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+             1.0f, -1.0f, 0.0f, 1.0f, 0.0f
+        };
+
+        // create a VBO, VAO
+        glGenVertexArrays(1, &quadVAO);
+        glGenBuffers(1, &quadVBO);
+
+        // bind and then allocate data onto GPU
+        glBindVertexArray(quadVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), &vertices, GL_STATIC_DRAW);
+
+        // does the brdf shader require UVs?
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    }
+
+    // GL_TRIANGLE_STRIP: every 3 adjacent vertices form a triangle...
+    // thus this is why we have 4 vertices instead of a whopping 6?
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+}
+
 void Skybox::renderCube()
 {
     buildCube();
@@ -112,7 +148,6 @@ Skybox::~Skybox()
 {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
-    glDeleteBuffers(1, &EBO);
 }
 
 void Skybox::loadCubemap(std::vector<std::string> faces)
@@ -138,6 +173,9 @@ void Skybox::loadCubemap(std::vector<std::string> faces)
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap);
+    glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
 }
 
 void Skybox::createIrradianceMap()
@@ -196,6 +234,104 @@ void Skybox::createIrradianceMap()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+void Skybox::createSpecularMap()
+{
+    // this should work first try! if it doesn't, I might cry.
+    // update: it did not work first try.
+    glm::mat4 captureViews[6] = {
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  1.0f,  0.0f), glm::vec3(0.0f,  0.0f,  1.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f, -1.0f,  0.0f), glm::vec3(0.0f,  0.0f, -1.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f,  1.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
+        glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 0.0f,  0.0f, -1.0f), glm::vec3(0.0f, -1.0f,  0.0f))
+    };
+
+    glGenTextures(1, &specularMap);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, specularMap);
+
+    for (unsigned int i = 0; i < 6; i++)  {
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 128, 128, 0, GL_RGB, GL_FLOAT, nullptr);
+    }
+
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
+
+    initCaptures();
+    glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
+    glBindRenderbuffer(GL_RENDERBUFFER, captureRBO);
+
+    specularShader = Shader("shaders/skybox.vert.glsl", "shaders/pbr/specularIrradiance.frag.glsl");
+    specularShader.use();
+    specularShader.setInt("environmentMap", 0);
+    specularShader.setMat4("projection", captureProjection);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap);
+
+    // i actually don't know why we repeat this but we do so why not
+    glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
+    unsigned int maxMipLevels = 5;
+
+    for ( unsigned int mip = 0; mip < maxMipLevels; mip++) 
+    {
+        unsigned int mipWidth  = static_cast<unsigned int>(128 * std::pow(0.5, mip));
+        unsigned int mipHeight = static_cast<unsigned int>(128 * std::pow(0.5, mip));
+
+        // bind to the render buffer
+        glBindRenderbuffer(GL_RENDERBUFFER, captureRBO);
+        // allocate member to the render buffer
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, mipWidth, mipHeight);
+        glViewport(0, 0, mipWidth, mipHeight);
+
+        // pass in roughness into shader
+        specularShader.use();
+        float roughness = (float) mip / (float) (maxMipLevels - 1);
+        specularShader.setFloat("roughness", roughness);
+        // render to the mip
+        for ( unsigned int i = 0; i < 6; i++) {
+            specularShader.setMat4("view", captureViews[i]);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, 
+                GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, specularMap, mip);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            renderCube();
+        }
+    }
+    std::cout << "done making specular map" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void Skybox::createBRDFLUT()
+{
+    glGenTextures(1, &brdfTexture);
+
+    glBindTexture(GL_TEXTURE_2D, brdfTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16F, 512, 512, 0, GL_RG, GL_FLOAT, 0);
+    // be sure to set wrapping mode to GL_CLAMP_TO_EDGE
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    // then re-configure capture framebuffer object and render screen-space quad with BRDF shader.
+    glBindFramebuffer(GL_FRAMEBUFFER, captureFBO);
+    glBindRenderbuffer(GL_RENDERBUFFER, captureRBO);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, 512, 512);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, brdfTexture, 0);
+
+    glViewport(0, 0, 512, 512);
+    brdfLUTShader = Shader("shaders/pbr/brdfLUT.vert.glsl", "shaders/pbr/brdfLUT.frag.glsl");
+    brdfLUTShader.use();
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    renderQuad();
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 void Skybox::draw(glm::mat4 viewMatrix, glm::mat4 projMatrix)
 {
     glDepthFunc(GL_LEQUAL);
@@ -209,7 +345,7 @@ void Skybox::draw(glm::mat4 viewMatrix, glm::mat4 projMatrix)
 
     // for testing purposes, let's display the irradianceMap?
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceMap);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap);
 
     renderCube();
 

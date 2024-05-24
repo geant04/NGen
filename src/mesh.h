@@ -33,8 +33,16 @@ public:
     void create();
     void bindCubeMap(unsigned int cubemapID);
     void bindIrradianceMap(unsigned int irradianceID);
+    void bindSpecularMap(unsigned int specularID);
+    void bindBrdfLUT(unsigned int brdfLUTID);
 private:
-    unsigned int VAO, VBO, EBO, cubemapID, irradianceID;
+    unsigned int VAO, VBO, EBO, 
+        cubemapID, 
+        irradianceID,
+        specularID,
+        brdfLUTID;
     bool hasCubeMap;
     bool hasIrradiance;
+    bool hasSpecular;
+    bool hasBRDFLUT;
 };
