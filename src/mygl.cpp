@@ -6,6 +6,7 @@
 #include "mesh.h"
 #include "skybox.h"
 #include "texture.h"
+#include "mesh_renderer.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
@@ -28,14 +29,20 @@ MyGL::~MyGL()
     // clean up
 }
 
+// buffer set ups for deferred rendering
+unsigned int gBuffer, gPosition, gNormal, gAlbedo, gMaterial;
+unsigned int gDepthBuffer;
+
 // camera
-const int WIDTH = 1200;
-const int HEIGHT = 900;
+const int WIDTH = 1280;
+const int HEIGHT = 720;
 Camera camera(WIDTH, HEIGHT);
 glm::vec2 lastMousePos = glm::vec2(WIDTH / 2, HEIGHT / 2);
 bool firstMouse = true;
 bool mousePressed = false;
 bool wantCapture = false;
+float deltaTime = 0.0f;
+float lastFrame = 0.0f;
 
 // display settings
 bool turntable = false;
@@ -119,16 +126,21 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
     }
 }
 
+void setupGBuffer();
+
 void MyGL::init() 
 {
     // glfw initialization
+    // --------------------------
+
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     
     // window creation
+    // --------------------------
+
     GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "NGEN 0.0", NULL, NULL);
     if (window == NULL)
     {
@@ -145,136 +157,55 @@ void MyGL::init()
     glfwSetMouseButtonCallback(window, mouse_button_callback);
 
     // load function pointers??
+    // --------------------------
+
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
         std::cout << "Failed to initialize GLAD" << std::endl;
         return;
     }
 
-    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);  
-
-    // load our scene
-    bool pbr = true;
-
-    Shader ourShader;
-
-    // skybox time
-    std::string skyboxName = "betterSkybox";
-    std::vector<std::string> faces {
-        "textures/skybox/" + skyboxName + "/right.jpg",
-        "textures/skybox/" + skyboxName + "/left.jpg",
-        "textures/skybox/" + skyboxName + "/top.jpg",
-        "textures/skybox/" + skyboxName + "/bottom.jpg",
-        "textures/skybox/" + skyboxName + "/front.jpg",
-        "textures/skybox/" + skyboxName + "/back.jpg"
-    };
+    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 
     // Model loading
-    // ------------------------------------------------
+    // --------------------------
+
     Mesh ourMesh;
-    std::string modelName = "teapot";
+    std::string modelName = "snale3";
     std::string modelPath = "models/" + modelName + ".obj";
     ourMesh.LoadObj(modelPath.c_str());
     ourMesh.create();
-    bool showModel = true;
 
-    // PBR
-    // -------------------------------------------------
+    MeshRenderer meshRenderer;
+    meshRenderer.SetMesh(&ourMesh);
+    meshRenderer.LoadMaterials("textures/pbrGold/gold-scuffed_basecolor-boosted.png",
+                               "textures/pbrGold/gold-scuffed_normal.png",
+                               "textures/pbrGold/gold-scuffed_metallic.png",
+                               "textures/pbrGold/gold-scuffed_roughness.png");
+    meshRenderer.LoadShader("shaders/deferred/gbuffer.vert.glsl", "shaders/deferred/gbuffer.frag.glsl");
 
-    Texture2D albedoMap;
-    Texture2D normalMap;
-    Texture2D metallicMap;
-    Texture2D roughnessMap;
-
-    // constants for the shader
-    glm::vec3 u_Albedo = glm::vec3(0.5f, 0.0f, 0.0f);
-    float u_Roughness = 0.5f;
-    float u_Metallic = 0.5f;
-    float u_AmbientOcclusion = 1.0f;
-    float color[3] = {u_Albedo.r, u_Albedo.g, u_Albedo.b};
-    float background[3] = {0.0f, 0.0f, 0.0f};
-
-    bool useAlbedoMap = true;
-    bool useNormalMap = true;
-    bool useMetallicMap = true;
-    bool useRoughnessMap = true;
+    Mesh groundMesh;
+    groundMesh.LoadObj("models/cube.obj");
+    groundMesh.create();
+    MeshRenderer groundRenderer;
+    groundRenderer.SetMesh(&groundMesh);
+    groundRenderer.LoadMaterials("textures/pbrCopper/Copper-scuffed_basecolor-boosted.png",
+                               "textures/pbrCopper/Copper-scuffed_normal.png",
+                               "textures/pbrCopper/Copper-scuffed_metallic.png",
+                               "textures/pbrCopper/Copper-scuffed_roughness.png");
+    groundRenderer.LoadShader("shaders/deferred/gbuffer.vert.glsl", "shaders/deferred/gbuffer.frag.glsl");
+    groundRenderer.translate(glm::vec3(0, -2, 0));
+    groundRenderer.scale(glm::vec3(4, 0.75, 4));
+    
 
     Skybox envMap;
-    //envMap.loadCubemap(faces);
-    bool showEnv = true;
-
-    if (pbr) {
-        ourShader = Shader("shaders/pbr/pbrvert.glsl", "shaders/pbr/pbrfrag.glsl");
-        ourShader.use();
-        ourShader.setInt("u_AlbedoMap", 3);
-        ourShader.setInt("u_NormalMap", 4);
-        ourShader.setInt("u_MetallicMap", 5);
-        ourShader.setInt("u_RoughnessMap", 6);
-
-        ourShader.setBool("u_UseAlbedoMap", useAlbedoMap);
-        ourShader.setBool("u_UseNormalMap", useNormalMap);
-        ourShader.setBool("u_UseMetallicMap", useMetallicMap);
-        ourShader.setBool("u_UseRoughnessMap", useRoughnessMap);
-        
-        ourShader.setInt("u_IrradianceMap", 0);
-        ourShader.setInt("u_SpecularMap", 1);
-        ourShader.setInt("u_BRDFLUT", 2);
-
-        //load textures
-        // albedoMap.loadTexture("textures/pbr/rustediron2_basecolor.png");
-        // normalMap.loadTexture("textures/pbr/rustediron2_normal.png");
-        // metallicMap.loadTexture("textures/pbr/rustediron2_metallic.png");
-        // roughnessMap.loadTexture("textures/pbr/rustediron2_roughness.png");
-
-        // albedoMap.loadTexture("textures/pbrCopper/Copper-scuffed_basecolor-boosted.png");
-        // normalMap.loadTexture("textures/pbrCopper/Copper-scuffed_normal.png");
-        // metallicMap.loadTexture("textures/pbrCopper/Copper-scuffed_metallic.png");
-        // roughnessMap.loadTexture("textures/pbrCopper/Copper-scuffed_roughness.png");
-
-        // albedoMap.loadTexture("textures/cync/cazas_texture.png");
-        // normalMap.loadTexture("textures/pbrCopper/Copper-scuffed_normal.png");
-        // metallicMap.loadTexture("textures/pbrCopper/Copper-scuffed_metallic.png");
-        // roughnessMap.loadTexture("textures/pbrCopper/Copper-scuffed_roughness.png");
-
-        albedoMap.loadTexture("textures/pbrWood/mahogfloor_basecolor.png");
-        normalMap.loadTexture("textures/pbrWood/mahogfloor_normal.png");
-        roughnessMap.loadTexture("textures/pbrWood/mahogfloor_roughness.png");
-
-        envMap.loadHDR("textures/hdr/hangar_interior_4k.hdr");
-        //senvMap.loadCubemap(faces);
-
-        // glm::mat4 projection = camera.getProjectionMatrix();
-        // ourShader.use();
-        // pbrShader.setMat4("projection", projection);
-        
-        // backgroundShader.use();
-        // backgroundShader.setMat4("projection", projection);
-
-        // then before rendering, configure the viewport to the original framebuffer's screen dimensions
-        // int scrWidth, scrHeight;
-        // glfwGetFramebufferSize(window, &scrWidth, &scrHeight);
-        // glViewport(0, 0, scrWidth, scrHeight);
-
-        envMap.createIrradianceMap();
-        ourMesh.bindIrradianceMap(envMap.getIrradianceMap());
-
-        envMap.createSpecularMap();
-        ourMesh.bindSpecularMap(envMap.getSpecularMap());
-
-        // to be honest, I don't know the theory behind the LUT that well
-        envMap.createBRDFLUT();
-        ourMesh.bindBrdfLUT(envMap.getBRDFLUT());
-
-    } else {
-        ourShader = Shader("shaders/basic/vert.glsl", "shaders/basic/frag.glsl");
-        ourShader.setInt("envMap", 0);
-        //envMap.loadCubemap(faces);
-    }
+    envMap.loadHDR("textures/hdr/hangar_interior_4k.hdr");
+    envMap.createIrradianceMap();
+    envMap.createSpecularMap();
+    envMap.createBRDFLUT();
 
     // Viewport resizing necessary after a bunch of the crap i did
     // --------------------------
-    float deltaTime = 0.0f;
-    float lastFrame = 0.0f;
 
     int scrWidth, scrHeight;
     glfwGetFramebufferSize(window, &scrWidth, &scrHeight);
@@ -289,15 +220,51 @@ void MyGL::init()
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
 
+    // constants for IMGUI
+    // --------------------------
+    glm::vec3 u_Albedo = glm::vec3(0.5f, 0.0f, 0.0f);
+    float u_Roughness = 0.5f;
+    float u_Metallic = 0.5f;
+    float u_AmbientOcclusion = 1.0f;
+    float color[3] = {u_Albedo.r, u_Albedo.g, u_Albedo.b};
+    float background[3] = {0.0f, 0.0f, 0.0f};
+
+    bool useAlbedoMap = true;
+    bool useNormalMap = true;
+    bool useMetallicMap = true;
+    bool useRoughnessMap = true;
+
+    bool showModel = true;
+    bool showEnv = true;
+
     // render loop
+    // --------------------------
+
+    // quad render test
+    Shader deferredShader;
+    deferredShader = Shader("shaders/deferred/deferred.vert.glsl", "shaders/deferred/deferred.frag.glsl");
+    deferredShader.use();
+    deferredShader.setInt("gPosition", 0);
+    deferredShader.setInt("gNormal", 1);
+    deferredShader.setInt("gAlbedo", 2);
+    deferredShader.setInt("gMaterial", 3);
+    deferredShader.setInt("u_IrradianceMap", 4);
+    deferredShader.setInt("u_SpecularMap", 5);
+    deferredShader.setInt("u_BRDFLUT", 6);
+
+    // GBuffer setup
+    glEnable(GL_DEPTH_TEST);
+    setupGBuffer();
+
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    
     while (!glfwWindowShouldClose(window))
     {
         // input
         processInput(window, camera, deltaTime);
 
         // rendering commands here
-        glEnable(GL_DEPTH_TEST);  
-        glClearColor(background[0], background[1], background[2], 1.0f);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // imgui
@@ -311,91 +278,57 @@ void MyGL::init()
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        // camera
-        glm::mat4 model = glm::mat4(1.0f);
-        
-        // teapot is a bit big
-        if (!modelName.compare("teapot"))
-        {
-            model = glm::scale(model, glm::vec3(0.15f));
-        }
-
-        if (!modelName.compare("itme"))
-        {
-            model = glm::scale(model, glm::vec3(0.1f));
-        }
-
-        glm::vec3 axis = glm::vec3(0.0f, 1.0f, 0.0f);
-        float theta = glm::radians(50.0f);
-
-        if (angledTurn) {
-            axis.x = 0.2f;
-        }
-
-        if (turntable) {
-            theta *= currentFrame;
-        }
-
-        if (angledTurn || turntable)
-        {
-            model = glm::rotate(model, theta, axis);
-        }
-
-        glm::mat4 view = glm::mat4(1.0f);
-        view = camera.getViewMatrix();
-
-        glm::mat4 projection = glm::mat4(1.0f);
-        projection = camera.getProjectionMatrix();
-
-        // set some stuff
-        ourShader.use();
-        ourShader.setMat4("model", model);
-        ourShader.setMat4("modelInvTrans", glm::transpose(glm::inverse(model)));
-        ourShader.setMat4("view", view);
-        ourShader.setMat4("projection", projection);
-        ourShader.setVec3("u_CamPos", camera.eye);
-        ourShader.setVec3("u_Albedo", u_Albedo);
-        ourShader.setFloat("u_Roughness", u_Roughness);
-        ourShader.setFloat("u_Metallic", u_Metallic);
-        ourShader.setFloat("u_AmbientOcclusion", u_AmbientOcclusion);
-
-        ourShader.setBool("u_UseAlbedoMap", useAlbedoMap);
-        ourShader.setBool("u_UseNormalMap", useNormalMap);
-        ourShader.setBool("u_UseRoughnessMap", useRoughnessMap);
-        ourShader.setBool("u_UseMetallicMap", useMetallicMap);
-
-        if (pbr)
-        {
-            // bind textures for PBR
-            glActiveTexture(GL_TEXTURE3);
-            glBindTexture(GL_TEXTURE_2D, albedoMap.getTextureID());
-            glActiveTexture(GL_TEXTURE4);
-            glBindTexture(GL_TEXTURE_2D, normalMap.getTextureID());
-            glActiveTexture(GL_TEXTURE5);
-            glBindTexture(GL_TEXTURE_2D, metallicMap.getTextureID());
-            glActiveTexture(GL_TEXTURE6);
-            glBindTexture(GL_TEXTURE_2D, roughnessMap.getTextureID());
-            // there should be a slot for AO map but it's simply white
-        }
-        
-        if (showModel) 
-        {
-            ourMesh.Draw();
-        }
-
-        // render the skybox
-        //skybox.draw(view, projection);
+        // render skybox first??
         if (showEnv)
         {
-            envMap.draw(view, projection);
+            envMap.draw(&camera);
         }
 
+        // draw scene to G-buffer
+        glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        meshRenderer.setParams(u_Albedo, u_Metallic, u_Roughness);
+        meshRenderer.Draw(&camera);
+        groundRenderer.Draw(&camera);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        // render lighting for deferred pass
+
+        // use deferred lighting shader
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        deferredShader.use();
+        deferredShader.setVec3("u_CamPos", camera.eye);
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, gPosition);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, gNormal);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, gAlbedo);
+        glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_2D, gMaterial);
+        // assign diffuse map
+        // assign glossy map
+        // assign BRDF_LUT map
+        glActiveTexture(GL_TEXTURE4);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, envMap.getIrradianceMap());
+        glActiveTexture(GL_TEXTURE5);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, envMap.getSpecularMap());
+        glActiveTexture(GL_TEXTURE6);
+        glBindTexture(GL_TEXTURE_2D, envMap.getBRDFLUT());
+
+        // i know it says envMap but bear with me
+        envMap.renderQuad();
+
+
         ImGui::Begin("Settings");
+        ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
         ImGui::Text("PBR Settings");
         ImGui::ColorEdit3("Albedo", color);
         ImGui::SliderFloat("Roughness", &u_Roughness, 0.0f, 1.0f);
         ImGui::SliderFloat("Metallic", &u_Metallic, 0.0f, 1.0f);
-        ImGui::SliderFloat("Ambient Occlusion", &u_AmbientOcclusion, 0.0f, 1.0f);
+        ImGui::SliderFloat("AO", &u_AmbientOcclusion, 0.0f, 1.0f);
         ImGui::Checkbox("Albedo Map", &useAlbedoMap);
         ImGui::Checkbox("Normal Map", &useNormalMap);
         ImGui::Checkbox("Metallic Map", &useMetallicMap);
@@ -407,6 +340,14 @@ void MyGL::init()
         ImGui::Text("Background Settings");
         ImGui::Checkbox("Show environment", &showEnv);
         ImGui::ColorEdit3("Background", background);
+        ImGui::Image((void*)(intptr_t)gPosition, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+        ImGui::SameLine();
+        ImGui::Image((void*)(intptr_t)  gNormal, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+
+        ImGui::Image((void*)(intptr_t)  gAlbedo, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+        ImGui::SameLine();
+        ImGui::Image((void*)(intptr_t)gMaterial, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+
         ImGui::End();
 
         ImGui::Render();
@@ -428,3 +369,54 @@ void MyGL::init()
     glfwTerminate();
 }
 
+
+void setupGBuffer()
+{
+    glGenFramebuffers(1, &gBuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
+
+    // generate position buffer -- id: 0
+    glGenTextures(1, &gPosition);
+    glBindTexture(GL_TEXTURE_2D, gPosition);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, WIDTH, HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gPosition, 0);
+
+    // generate normal buffer -- id: 1
+    glGenTextures(1, &gNormal);
+    glBindTexture(GL_TEXTURE_2D, gNormal);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, WIDTH, HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gNormal, 0);
+
+    // generate albedo buffer -- id: 2
+    glGenTextures(1, &gAlbedo);
+    glBindTexture(GL_TEXTURE_2D, gAlbedo);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gAlbedo, 0);
+
+    // generate material buffer -- id: 3
+    glGenTextures(1, &gMaterial);
+    glBindTexture(GL_TEXTURE_2D, gMaterial);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, WIDTH, HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, gMaterial, 0);
+
+    // write to four textures, but I'm going to be honest we probably don't need the fourth one
+    GLuint attachments[4] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
+    glDrawBuffers(4, attachments);
+
+    glGenRenderbuffers(1, &gDepthBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, gDepthBuffer);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, WIDTH, HEIGHT);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, gDepthBuffer);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "Framebuffer not complete!" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}

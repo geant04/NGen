@@ -17,5 +17,5 @@ public:
         return textureID;
     }
 private:
-    unsigned int textureID = 2;
+    unsigned int textureID;
 };

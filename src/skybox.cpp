@@ -436,13 +436,13 @@ void Skybox::createBRDFLUT()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void Skybox::draw(glm::mat4 viewMatrix, glm::mat4 projMatrix)
+void Skybox::draw(Camera *camera)
 {
     glDepthFunc(GL_LEQUAL);
 
     skyboxShader.use();
-    glm::mat4 view = glm::mat4(glm::mat3(viewMatrix)); // remove translation -- we are always at (0, 0, 0)
-    glm::mat4 projection = projMatrix;
+    glm::mat4 view = glm::mat4(glm::mat3(camera->getViewMatrix())); // remove translation -- we are always at (0, 0, 0)
+    glm::mat4 projection = camera->getProjectionMatrix();
 
     skyboxShader.setMat4("view", view);
     skyboxShader.setMat4("projection", projection);

@@ -5,9 +5,6 @@ in vec3 fs_Pos;
 in vec2 fs_UV;
 
 uniform samplerCube skybox;
-// this sampler is here for testing purposess
-uniform sampler2D txt;
-
 uniform bool u_isHDR;
 
 void main()

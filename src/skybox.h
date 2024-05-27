@@ -4,13 +4,14 @@
 #include "Shader.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include "camera.h"
 
 class Skybox
 {
 public:
     Skybox();
     ~Skybox();
-    void draw(glm::mat4 viewMatrix, glm::mat4 projMatrix);
+    void draw(Camera *camera);
     void loadCubemap(std::vector<std::string> faces);
     void loadHDR(const char* path);
     void createIrradianceMap();
