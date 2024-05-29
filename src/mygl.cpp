@@ -201,7 +201,7 @@ void MyGL::init()
                                "textures/pbrCopper/Copper-scuffed_roughness.png");
     groundRenderer.LoadShader("shaders/deferred/gbuffer.vert.glsl", "shaders/deferred/gbuffer.frag.glsl");
     groundRenderer.translate(glm::vec3(0, -4.75, 0));
-    groundRenderer.scale(glm::vec3(4, 0.75, 4));
+    groundRenderer.scale(glm::vec3(8, 0.75, 8));
     
 
     Skybox envMap;
@@ -244,9 +244,9 @@ void MyGL::init()
     bool showEnv = true;
     
     bool enableSSAO = true;
-    bool showSSAODebug = true;
-    float SSAOradius = 0.50;
-    float SSAObias = 0.025;
+    bool showSSAODebug = false;
+    float SSAOradius = 0.314;
+    float SSAOstrength = 1.4;
     int SSAOsamples = 16;
 
     // render loop
@@ -285,6 +285,18 @@ void MyGL::init()
     testQuad.use();
     testQuad.setInt("testTXT", 0);
 
+    glm::vec3 testPositions[9] = {
+        glm::vec3( 0., 0., 0.),
+        glm::vec3(-1, 0., 0.),
+        glm::vec3( 1., 0., 0.),
+        glm::vec3(-1., 0., 1.),
+        glm::vec3( 0., 0., 1.),
+        glm::vec3( 1., 0., 1.),
+        glm::vec3(-1., 0., -1.),
+        glm::vec3( 0., 0., -1.),
+        glm::vec3( 1., 0., -1.)
+    };
+
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     
     while (!glfwWindowShouldClose(window))
@@ -317,7 +329,12 @@ void MyGL::init()
         }
 
         meshRenderer.setParams(u_Albedo, u_Metallic, u_Roughness);
-        meshRenderer.Draw(&camera);
+        for ( unsigned int i = 0; i < 9; i++) {
+            float spread = 4.5;
+            glm::vec3 pos = testPositions[i] * spread;
+            meshRenderer.translate(pos);
+            meshRenderer.Draw(&camera);
+        }
         groundRenderer.Draw(&camera);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -338,11 +355,9 @@ void MyGL::init()
             SSAOShader.use();
             SSAOShader.setMat4("projection", camera.getProjectionMatrix());
             SSAOShader.setMat4("view", camera.getViewMatrix());
-            // idiot solution because I can't figure out how to get depth quickly
-            SSAOShader.setVec3("camPos", camera.eye);
             SSAOShader.setInt("samples", SSAOsamples);
-            SSAOShader.setFloat("bias", SSAObias);
             SSAOShader.setFloat("radius", SSAOradius);
+            SSAOShader.setFloat("aoStrength", SSAOstrength);
             envMap.renderQuad();
 
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -397,38 +412,51 @@ void MyGL::init()
 
         ImGui::Begin("Settings");
         ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-        ImGui::Text("PBR Settings");
-        ImGui::ColorEdit3("Albedo", color);
-        ImGui::SliderFloat("Roughness", &u_Roughness, 0.0f, 1.0f);
-        ImGui::SliderFloat("Metallic", &u_Metallic, 0.0f, 1.0f);
-        ImGui::SliderFloat("AO", &u_AmbientOcclusion, 0.0f, 1.0f);
-        ImGui::Checkbox("Albedo Map", &useAlbedoMap);
-        ImGui::Checkbox("Normal Map", &useNormalMap);
-        ImGui::Checkbox("Metallic Map", &useMetallicMap);
-        ImGui::Checkbox("Roughness Map", &useRoughnessMap);
-        ImGui::Text("Display Settings");
-        ImGui::Checkbox("Show model", &showModel);
-        ImGui::Checkbox("Turntable", &turntable);
-        ImGui::Checkbox("Angled Turn", &angledTurn);
-        ImGui::Text("Background Settings");
-        ImGui::Checkbox("Show environment", &showEnv);
-        ImGui::ColorEdit3("Background", background);
+        if (ImGui::CollapsingHeader("PBR Settings"))
+        {
+            ImGui::ColorEdit3("Albedo", color);
+            ImGui::SliderFloat("Roughness", &u_Roughness, 0.0f, 1.0f);
+            ImGui::SliderFloat("Metallic", &u_Metallic, 0.0f, 1.0f);
+            ImGui::SliderFloat("AO", &u_AmbientOcclusion, 0.0f, 1.0f);
+            ImGui::Checkbox("Albedo Map", &useAlbedoMap);
+            ImGui::Checkbox("Normal Map", &useNormalMap);
+            ImGui::Checkbox("Metallic Map", &useMetallicMap);
+            ImGui::Checkbox("Roughness Map", &useRoughnessMap);
+        }
 
-        ImGui::Image((void*)(intptr_t) gPosition, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
-        ImGui::SameLine();
-        ImGui::Image((void*)(intptr_t) gNormal, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+        if (ImGui::CollapsingHeader("Display Settings"))
+        {
+            ImGui::Checkbox("Show model", &showModel);
+            ImGui::Checkbox("Turntable", &turntable);
+            ImGui::Checkbox("Angled Turn", &angledTurn);
+        }
 
-        ImGui::Image((void*)(intptr_t) gAlbedo, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
-        ImGui::SameLine();
-        ImGui::Image((void*)(intptr_t) gMaterial, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+        if (ImGui::CollapsingHeader("Background Settings"))
+        {
+            ImGui::Checkbox("Show environment", &showEnv);
+            ImGui::ColorEdit3("Background", background);
+        }
 
-        //ImGui::Image((void*)(intptr_t) SSAObuffer, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
-        ImGui::Text("SSAO Settings");
-        ImGui::Checkbox("Enable SSAO", &showSSAO);
-        ImGui::SliderInt("Samples", &SSAOsamples, 0, 20);
-        ImGui::SliderFloat("Radius", &SSAOradius, 0.0f, 1.0f);
-        ImGui::SliderFloat("Bias", &SSAObias, 0.0f, 0.1f);
-        ImGui::Checkbox("SSAO Debug", &showSSAODebug);
+        if (ImGui::CollapsingHeader("Deferred Outputs"))
+        {
+            ImGui::Image((void*)(intptr_t) gPosition, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+            ImGui::SameLine();
+            ImGui::Image((void*)(intptr_t) gNormal, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+
+            ImGui::Image((void*)(intptr_t) gAlbedo, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+            ImGui::SameLine();
+            ImGui::Image((void*)(intptr_t) gMaterial, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+        }
+
+        if (ImGui::CollapsingHeader("SSAO Settings"))
+        {
+            ImGui::Checkbox("Enable SSAO", &showSSAO);
+            ImGui::SliderInt("Samples", &SSAOsamples, 0, 20);
+            ImGui::SliderFloat("Radius", &SSAOradius, 0.0f, 1.0f);
+            ImGui::SliderFloat("Strength", &SSAOstrength, 0.0f, 2.5f);
+            ImGui::Checkbox("SSAO Debug", &showSSAODebug);
+        }
+
         ImGui::End();
 
         ImGui::Render();

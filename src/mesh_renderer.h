@@ -43,7 +43,6 @@ public:
     void translate(glm::vec3 direction)
     {
         this->translation = direction;
-        std::cout << "set translate" << std::endl;
     };
     void scale(glm::vec3 scaleAmt)
     {

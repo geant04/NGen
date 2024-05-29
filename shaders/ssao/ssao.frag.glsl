@@ -8,13 +8,12 @@ uniform sampler2D gNormal;
 uniform int samples;
 uniform mat4 projection;
 uniform mat4 view;
-uniform vec3 camPos;
 
 in vec2 fs_UV;
 
 const float PI = 3.14159f;
-uniform float bias = 0.025;
-uniform float radius = 0.14;
+uniform float radius;
+uniform float aoStrength;
 
 float hash(vec2 p)
 {
@@ -26,7 +25,7 @@ void main()
     // 
     vec3 worldPos = texture(gPosition, fs_UV).rgb;
     vec3 normal = normalize(texture(gNormal, fs_UV).rgb);
-    float fragPosZ = length(camPos - worldPos);
+    vec3 viewPos = (view * vec4(worldPos, 1.0)).rgb;
     
     float ao = 0;
 
@@ -38,9 +37,11 @@ void main()
     vec3 bitangent = normalize(cross(tangent, normal));
     tangent = normalize(cross(normal, bitangent));
 
-    // generate random samples [-1, 1]
+    mat3 TBN = mat3(tangent, bitangent, normal);
+
     for (int i = 0; i < samples; i++) {
-        // Generate random sample within hemisphere
+        
+        // generate random sample within hemisphere
         float rand = hash(vec2(seed, i));
         float rand2 = hash(vec2(i, rand));
 
@@ -56,24 +57,27 @@ void main()
         float z = sqrt(1.0 - hx);
 
         // create a tangent sample vector
-        vec3 sampleVec = x * bitangent + y * tangent + z * normal;
-        vec3 samplePos = worldPos + sampleVec * radius;
-        vec4 viewPos = view * vec4(samplePos, 1.0);
+        vec3 sample = TBN * vec3(x, y, z);
+        vec3 offsetPos = worldPos + sample * radius;
+        vec4 offsetView = view * vec4(offsetPos, 1.0);
 
-        vec4 offset = projection * viewPos;
+        vec4 offset = projection * offsetView;
         offset.xyz /= offset.w;
         offset.xyz = offset.xyz * 0.5 + 0.5;
 
-        // depth check, probably not the best approach
-        vec4 sampleWorld = texture(gPosition, offset.xy);
-        float sampleDepth = length(camPos - samplePos);
-        float deferredDepth = length(camPos - sampleWorld.rgb);
+        vec4 sampleWorld = vec4(texture(gPosition, offset.xy).rgb, 1.0);
+        vec4 sampleToPixel = projection * view * sampleWorld;
+        sampleToPixel.xyz /= sampleToPixel.w;
 
-        float rangeCheck = smoothstep(0.0, 1.0, radius / abs(fragPosZ - sampleDepth));
-        ao += (sampleDepth >= deferredDepth + bias ? 1.0 : 0.0) * rangeCheck;
+        float sampleZ = sampleToPixel.z * 0.5 + 0.5;
+        
+        if (offset.z > sampleZ && length(worldPos - sampleWorld.rgb) < radius * 2.0)
+        {
+            ao += 1.0;
+        }
     }
 
     ao = 1.0 - (ao / float(samples));
 
-    outColor = ao;
+    outColor = clamp(pow(ao, aoStrength), 0, 1);
 }
