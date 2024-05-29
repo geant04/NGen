@@ -4,6 +4,7 @@ MeshRenderer::MeshRenderer()
 {
     translation = glm::vec3(0.);
     scaleAmt = glm::vec3(1.);
+    rotationAxis = glm::vec3(0., 1., 0.);
 }
 
 MeshRenderer::~MeshRenderer()
@@ -17,6 +18,7 @@ void MeshRenderer::Draw(Camera *camera)
 
     model = glm::translate(model, translation);
     model = glm::scale(model, scaleAmt);
+    model = glm::rotate(model, rotateTheta, rotationAxis);
 
     shader.setMat4("model", model);
     shader.setMat4("view", camera->getViewMatrix());

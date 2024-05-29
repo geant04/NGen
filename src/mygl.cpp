@@ -13,6 +13,8 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
+#include <iomanip>
+#include <sstream>
 
 // imgui
 #include "imgui/imgui.h"
@@ -32,6 +34,7 @@ MyGL::~MyGL()
 // buffer set ups for deferred rendering
 unsigned int gBuffer, gPosition, gNormal, gAlbedo, gMaterial;
 unsigned int gDepthBuffer;
+unsigned int SSAObuffer, SSAOfbo;
 
 // camera
 const int WIDTH = 1280;
@@ -47,6 +50,7 @@ float lastFrame = 0.0f;
 // display settings
 bool turntable = false;
 bool angledTurn = false;
+bool showSSAO = true;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -128,6 +132,8 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 
 void setupGBuffer();
 
+void setupSSAO();
+
 void MyGL::init() 
 {
     // glfw initialization
@@ -171,7 +177,7 @@ void MyGL::init()
     // --------------------------
 
     Mesh ourMesh;
-    std::string modelName = "snale3";
+    std::string modelName = "wahoo";
     std::string modelPath = "models/" + modelName + ".obj";
     ourMesh.LoadObj(modelPath.c_str());
     ourMesh.create();
@@ -179,7 +185,7 @@ void MyGL::init()
     MeshRenderer meshRenderer;
     meshRenderer.SetMesh(&ourMesh);
     meshRenderer.LoadMaterials("textures/pbrGold/gold-scuffed_basecolor-boosted.png",
-                               "textures/pbrGold/gold-scuffed_normal.png",
+                               "textures/pbrWood/mahogfloor_normal.png",
                                "textures/pbrGold/gold-scuffed_metallic.png",
                                "textures/pbrGold/gold-scuffed_roughness.png");
     meshRenderer.LoadShader("shaders/deferred/gbuffer.vert.glsl", "shaders/deferred/gbuffer.frag.glsl");
@@ -194,7 +200,7 @@ void MyGL::init()
                                "textures/pbrCopper/Copper-scuffed_metallic.png",
                                "textures/pbrCopper/Copper-scuffed_roughness.png");
     groundRenderer.LoadShader("shaders/deferred/gbuffer.vert.glsl", "shaders/deferred/gbuffer.frag.glsl");
-    groundRenderer.translate(glm::vec3(0, -2, 0));
+    groundRenderer.translate(glm::vec3(0, -4.75, 0));
     groundRenderer.scale(glm::vec3(4, 0.75, 4));
     
 
@@ -236,11 +242,17 @@ void MyGL::init()
 
     bool showModel = true;
     bool showEnv = true;
+    
+    bool enableSSAO = true;
+    bool showSSAODebug = true;
+    float SSAOradius = 0.50;
+    float SSAObias = 0.025;
+    int SSAOsamples = 16;
 
     // render loop
     // --------------------------
 
-    // quad render test
+    // deferred rendering setup
     Shader deferredShader;
     deferredShader = Shader("shaders/deferred/deferred.vert.glsl", "shaders/deferred/deferred.frag.glsl");
     deferredShader.use();
@@ -251,10 +263,27 @@ void MyGL::init()
     deferredShader.setInt("u_IrradianceMap", 4);
     deferredShader.setInt("u_SpecularMap", 5);
     deferredShader.setInt("u_BRDFLUT", 6);
+    deferredShader.setInt("u_SSAO", 7);
 
     // GBuffer setup
     glEnable(GL_DEPTH_TEST);
     setupGBuffer();
+
+    // SSAO setup
+    // the vert shaders for SSAO and brdfLUT are identical
+
+    Shader SSAOShader;
+    SSAOShader = Shader("shaders/ssao/ssao.vert.glsl", "shaders/ssao/ssao.frag.glsl");
+    SSAOShader.use();
+    SSAOShader.setInt("gPosition", 0);
+    SSAOShader.setInt("gNormal", 1);
+    setupSSAO();
+
+    // for testing purposes
+    Shader testQuad;
+    testQuad = Shader("shaders/ssao/ssao.vert.glsl", "shaders/ssao/testSAO.glsl");
+    testQuad.use();
+    testQuad.setInt("testTXT", 0);
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     
@@ -263,8 +292,12 @@ void MyGL::init()
         // input
         processInput(window, camera, deltaTime);
 
-        // rendering commands here
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        // frame logic
+        float currentFrame = glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+
+        // Clear screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // imgui
@@ -274,31 +307,62 @@ void MyGL::init()
         
         wantCapture = io.WantCaptureMouse;
 
-        float currentFrame = glfwGetTime();
-        deltaTime = currentFrame - lastFrame;
-        lastFrame = currentFrame;
-
-        // render skybox first??
-        if (showEnv)
-        {
-            envMap.draw(&camera);
-        }
-
         // draw scene to G-buffer
         glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        if (turntable)
+        {
+            meshRenderer.rotate(currentFrame, glm::vec3(0, 1, 0));
+        }
 
         meshRenderer.setParams(u_Albedo, u_Metallic, u_Roughness);
         meshRenderer.Draw(&camera);
         groundRenderer.Draw(&camera);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        // render lighting for deferred pass
+
+        // apply SSAO
+        if (showSSAO)
+        {
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glBindFramebuffer(GL_FRAMEBUFFER, SSAOfbo);
+
+            // bind textures
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, gPosition);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, gNormal);
+
+            // use SSAO shader
+            SSAOShader.use();
+            SSAOShader.setMat4("projection", camera.getProjectionMatrix());
+            SSAOShader.setMat4("view", camera.getViewMatrix());
+            // idiot solution because I can't figure out how to get depth quickly
+            SSAOShader.setVec3("camPos", camera.eye);
+            SSAOShader.setInt("samples", SSAOsamples);
+            SSAOShader.setFloat("bias", SSAObias);
+            SSAOShader.setFloat("radius", SSAOradius);
+            envMap.renderQuad();
+
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        }
 
         // use deferred lighting shader
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // draw skybox
+        if (showEnv)
+        {
+            glDepthMask(GL_FALSE);
+            envMap.draw(&camera);
+            glDepthMask(GL_TRUE);
+        }
+
         deferredShader.use();
         deferredShader.setVec3("u_CamPos", camera.eye);
+        deferredShader.setBool("u_EnableSSAO", showSSAO);
+        deferredShader.setBool("u_DebugSSAO", showSSAODebug);
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, gPosition);
@@ -317,10 +381,19 @@ void MyGL::init()
         glBindTexture(GL_TEXTURE_CUBE_MAP, envMap.getSpecularMap());
         glActiveTexture(GL_TEXTURE6);
         glBindTexture(GL_TEXTURE_2D, envMap.getBRDFLUT());
+        glActiveTexture(GL_TEXTURE7);
+        glBindTexture(GL_TEXTURE_2D, SSAObuffer);
 
-        // i know it says envMap but bear with me
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         envMap.renderQuad();
+        glDisable(GL_BLEND);
 
+        // some combination final pass to combine SSAO and our deferred render
+        //testQuad.use();
+        //glActiveTexture(GL_TEXTURE0);
+        //glBindTexture(GL_TEXTURE_2D, SSAObuffer);
+        //envMap.renderQuad();
 
         ImGui::Begin("Settings");
         ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
@@ -340,14 +413,22 @@ void MyGL::init()
         ImGui::Text("Background Settings");
         ImGui::Checkbox("Show environment", &showEnv);
         ImGui::ColorEdit3("Background", background);
-        ImGui::Image((void*)(intptr_t)gPosition, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
-        ImGui::SameLine();
-        ImGui::Image((void*)(intptr_t)  gNormal, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
 
-        ImGui::Image((void*)(intptr_t)  gAlbedo, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+        ImGui::Image((void*)(intptr_t) gPosition, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
         ImGui::SameLine();
-        ImGui::Image((void*)(intptr_t)gMaterial, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+        ImGui::Image((void*)(intptr_t) gNormal, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
 
+        ImGui::Image((void*)(intptr_t) gAlbedo, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+        ImGui::SameLine();
+        ImGui::Image((void*)(intptr_t) gMaterial, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+
+        //ImGui::Image((void*)(intptr_t) SSAObuffer, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+        ImGui::Text("SSAO Settings");
+        ImGui::Checkbox("Enable SSAO", &showSSAO);
+        ImGui::SliderInt("Samples", &SSAOsamples, 0, 20);
+        ImGui::SliderFloat("Radius", &SSAOradius, 0.0f, 1.0f);
+        ImGui::SliderFloat("Bias", &SSAObias, 0.0f, 0.1f);
+        ImGui::Checkbox("SSAO Debug", &showSSAODebug);
         ImGui::End();
 
         ImGui::Render();
@@ -369,7 +450,6 @@ void MyGL::init()
     glfwTerminate();
 }
 
-
 void setupGBuffer()
 {
     glGenFramebuffers(1, &gBuffer);
@@ -381,6 +461,8 @@ void setupGBuffer()
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, WIDTH, HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gPosition, 0);
 
     // generate normal buffer -- id: 1
@@ -418,5 +500,26 @@ void setupGBuffer()
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cout << "Framebuffer not complete!" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void setupSSAO()
+{
+    glGenFramebuffers(1, &SSAOfbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, SSAOfbo);
+
+    // TODO: CHANGE THIS TO A GL_RED, WASTING CHANNELS OTHERWISE
+    glGenTextures(1, &SSAObuffer);
+    glBindTexture(GL_TEXTURE_2D, SSAObuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, WIDTH, HEIGHT, 0, GL_RED, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, SSAObuffer, 0);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "Framebuffer not complete!" << std::endl;
+
+    // worry about blurring and all of those fancy techniques later
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }

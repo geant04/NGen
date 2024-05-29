@@ -11,6 +11,10 @@ uniform sampler2D gMaterial;
 uniform samplerCube u_IrradianceMap;
 uniform samplerCube u_SpecularMap;
 uniform sampler2D u_BRDFLUT;
+uniform sampler2D u_SSAO;
+
+uniform bool u_DebugSSAO;
+uniform bool u_EnableSSAO;
 
 in vec2 fs_UV;
 
@@ -78,6 +82,16 @@ void main()
     float roughness = material.g;
     float metallic = material.r;
     vec3 normal = texture(gNormal, fs_UV).rgb;
+    float ao = 1.0;
+    if (u_EnableSSAO)
+    {
+        ao = texture(u_SSAO, fs_UV).r;
+    }
+    if (u_DebugSSAO)
+    {
+        out_Col = vec4(vec3(ao), 1.0);
+        return;
+    }
 
     vec4 gPos = texture(gPosition, fs_UV);
     vec3 fs_Pos = gPos.rgb;
@@ -156,6 +170,7 @@ void main()
     vec3 specular_lo = specular_li * (F * envBRDF.x + envBRDF.y);
 
     Lo += diffuse_lo + specular_lo;
+    Lo *= ao;
 
     Lo = Lo / (vec3(1.0f) + Lo);
     float gamma = 2.2f;

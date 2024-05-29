@@ -20,6 +20,8 @@ private:
     glm::mat4 model;
     glm::vec3 translation;
     glm::vec3 scaleAmt;
+    glm::vec3 rotationAxis;
+    float rotateTheta;
 
 // note that in our deferred pipeline, we do not care about most of these
 public:
@@ -46,5 +48,10 @@ public:
     void scale(glm::vec3 scaleAmt)
     {
         this->scaleAmt = scaleAmt;
+    }
+    void rotate(float angle, glm::vec3 axis)
+    {
+        this->rotationAxis = axis;
+        this->rotateTheta = angle;
     }
 };

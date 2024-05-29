@@ -458,7 +458,5 @@ void Skybox::draw(Camera *camera)
 
     renderCube();
 
-    glDepthMask(GL_TRUE);
-
     glDepthFunc(GL_LESS);
 }
