@@ -15,7 +15,9 @@
 - [ ] Disney BSDF
 - [ ] SDFs?
 - [ ] Volumetric rendering for fun
-- [ ] Deferred rendering pipeline
+- [X] Deferred rendering pipeline
+- [X] SSAO
+- [ ] SSR
 - [ ] Post-processing pipeline
 - [ ] Bloom
 - [ ] Chromatic Aberration
