@@ -2,9 +2,8 @@
 #include <iostream>
 
 Texture2D::Texture2D()
-{
-    glGenTextures(1, &textureID);
-}
+    : textureID(-1)
+{}
 
 Texture2D::Texture2D(const char* texturePath)
 {

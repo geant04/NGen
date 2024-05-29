@@ -5,6 +5,7 @@ layout (location = 2) in vec2 tex;
 
 out vec3 fs_nor;
 out vec3 fs_pos;
+out vec2 fs_UV;
 
 uniform mat4 model;
 uniform mat4 view;
@@ -19,4 +20,6 @@ void main()
     fs_nor = normalize(invTranspose * nor);
 
     fs_pos = vec3(model * vec4(pos, 1.0));
+
+    fs_UV = tex;
 }

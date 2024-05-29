@@ -42,7 +42,8 @@ Mesh::Mesh()
     : vertices(std::vector<Vertex>()), 
       indices(std::vector<unsigned int>()), textures(std::vector<Texture>()),
       hasCubeMap(false),
-      hasIrradiance(false)
+      hasIrradiance(false),
+      hasBRDFLUT(false)
 {
     // normally i'd have create here but let's wait for a moment
     // this is for the obj loader
@@ -67,6 +68,10 @@ Mesh::~Mesh()
 // obj loading
 void Mesh::LoadObj(const char* path)
 {
+    // reset vertices and indices    
+    // vertices = {};
+    // indices = {};
+
     // load obj file, for now we don't have to worry about materials
     tinyobj::attrib_t attrib;  
     std::vector<tinyobj::shape_t> shapes;
