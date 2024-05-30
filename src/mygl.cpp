@@ -235,16 +235,16 @@ void MyGL::init()
     float color[3] = {u_Albedo.r, u_Albedo.g, u_Albedo.b};
     float background[3] = {0.0f, 0.0f, 0.0f};
 
-    bool useAlbedoMap = true;
-    bool useNormalMap = true;
-    bool useMetallicMap = true;
-    bool useRoughnessMap = true;
+    bool useAlbedoMap = false;
+    bool useNormalMap = false;
+    bool useMetallicMap = false;
+    bool useRoughnessMap = false;
 
     bool showModel = true;
     bool showEnv = true;
     
     bool enableSSAO = true;
-    bool showSSAODebug = false;
+    bool showSSAODebug = true;
     float SSAOradius = 0.314;
     float SSAOstrength = 1.4;
     int SSAOsamples = 16;
@@ -329,6 +329,8 @@ void MyGL::init()
         }
 
         meshRenderer.setParams(u_Albedo, u_Metallic, u_Roughness);
+        meshRenderer.setMapToggles(useAlbedoMap, useRoughnessMap, useMetallicMap, useNormalMap);
+
         for ( unsigned int i = 0; i < 9; i++) {
             float spread = 4.5;
             glm::vec3 pos = testPositions[i] * spread;
@@ -339,7 +341,7 @@ void MyGL::init()
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-        // apply SSAO
+        // apply SSAO + honestly use this for SSR too?
         if (showSSAO)
         {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -378,6 +380,7 @@ void MyGL::init()
         deferredShader.setVec3("u_CamPos", camera.eye);
         deferredShader.setBool("u_EnableSSAO", showSSAO);
         deferredShader.setBool("u_DebugSSAO", showSSAODebug);
+        deferredShader.setFloat("aoVal", u_AmbientOcclusion);
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, gPosition);
@@ -531,7 +534,7 @@ void setupGBuffer()
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void setupSSAO()
+void setupSSAO() // + thickness
 {
     glGenFramebuffers(1, &SSAOfbo);
     glBindFramebuffer(GL_FRAMEBUFFER, SSAOfbo);
@@ -539,7 +542,7 @@ void setupSSAO()
     // TODO: CHANGE THIS TO A GL_RED, WASTING CHANNELS OTHERWISE
     glGenTextures(1, &SSAObuffer);
     glBindTexture(GL_TEXTURE_2D, SSAObuffer);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, WIDTH, HEIGHT, 0, GL_RED, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16, WIDTH, HEIGHT, 0, GL_RG, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, SSAObuffer, 0);

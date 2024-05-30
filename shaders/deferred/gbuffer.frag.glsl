@@ -20,6 +20,9 @@ uniform float u_metallic;
 uniform vec3 u_albedo;
 
 uniform bool useAlbedoMap;
+uniform bool useNormalMap;
+uniform bool useMetallicMap;
+uniform bool useRoughnessMap;
 
 // Gbuffer attachments:
 // -- position buffer
@@ -53,16 +56,29 @@ vec3 getNormalFromMap()
 void main()
 {
     vec3 albedo = u_albedo;
+    vec3 normal = fs_Nor;
+    float roughness = u_roughness;
+    float metallic = u_metallic;
+
     if (useAlbedoMap) {
         albedo = texture(albedoMap, fs_UV).rgb;
     }
+    if (useNormalMap)
+    {
+        normal = getNormalFromMap();
+    }
+    if (useRoughnessMap)
+    {
+        roughness = texture(roughnessMap, fs_UV).r;
+    }
+    if (useMetallicMap)
+    {
+        metallic = texture(metallicMap, fs_UV).r;
+    }
 
+    // fr wasting channels, we can fiddle with this later
     gPosition = vec4(fs_Pos, 1.0);
-    gNormal = vec4(getNormalFromMap(), 1.0);
-    gAlbedo = vec4(albedo.rgb, 1.0);
-
-    float metalMapValue = texture(metallicMap, fs_UV).r;
-    float roughMapValue = texture(roughnessMap, fs_UV).r;
-
-    gMaterial = vec4(metalMapValue, roughMapValue, 1.0, u_metallic);
+    gNormal = vec4(normal, 1.0);
+    gAlbedo = vec4(albedo, 1.0);
+    gMaterial = vec4(metallic, roughness, 1.0, 1.0);
 }

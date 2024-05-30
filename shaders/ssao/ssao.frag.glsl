@@ -1,6 +1,6 @@
 #version 330 core
 
-out float outColor;
+out vec2 outColor;
 
 uniform sampler2D gPosition;
 uniform sampler2D gNormal;
@@ -28,6 +28,7 @@ void main()
     vec3 viewPos = (view * vec4(worldPos, 1.0)).rgb;
     
     float ao = 0;
+    float thickness = 0;
 
     ivec2 coord = ivec2(gl_FragCoord.xy);
     float seed = hash(vec2(coord.x, coord.y));
@@ -56,12 +57,11 @@ void main()
         float y = r * sin(theta);
         float z = sqrt(1.0 - hx);
 
-        // create a tangent sample vector
+        // create a tangent sample vector, ao sampling
         vec3 sample = TBN * vec3(x, y, z);
         vec3 offsetPos = worldPos + sample * radius;
-        vec4 offsetView = view * vec4(offsetPos, 1.0);
 
-        vec4 offset = projection * offsetView;
+        vec4 offset = projection * view * vec4(offsetPos, 1.0);
         offset.xyz /= offset.w;
         offset.xyz = offset.xyz * 0.5 + 0.5;
 
@@ -75,9 +75,28 @@ void main()
         {
             ao += 1.0;
         }
+
+        // thickness part, sample * radius should invert the hemisphere
+        offsetPos = worldPos - sample * radius;
+        offset = projection * view * vec4(offsetPos, 1.0);
+        offset.xyz /= offset.w;
+        offset.xyz = offset.xyz * 0.5 + 0.5;
+
+        sampleWorld = vec4(texture(gPosition, offset.xy).rgb, 1.0);
+        sampleToPixel = projection * view * sampleWorld;
+        sampleToPixel.xyz /= sampleToPixel.w;
+
+        sampleZ = sampleToPixel.z * 0.5 + 0.5;
+        if (offset.z < sampleZ && length(worldPos - sampleWorld.rgb) < radius * 2.0)
+        {
+            thickness += 1.0;
+        }
     }
 
     ao = 1.0 - (ao / float(samples));
+    ao = clamp(pow(ao, aoStrength), 0, 1);
 
-    outColor = clamp(pow(ao, aoStrength), 0, 1);
+    thickness = (thickness / float(samples));
+    
+    outColor = vec2(ao, thickness);
 }

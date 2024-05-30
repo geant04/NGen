@@ -16,6 +16,8 @@ uniform sampler2D u_SSAO;
 uniform bool u_DebugSSAO;
 uniform bool u_EnableSSAO;
 
+uniform float aoVal;
+
 in vec2 fs_UV;
 
 const vec3 light_pos[4] = vec3[](vec3(-10, 10, -10),
@@ -30,7 +32,8 @@ const vec3 light_col[4] = vec3[](vec3(300.f, 300.f, 300.f) * 4,
 
 const float PI = 3.14159f;
 
-float distribFunc(vec3 n, vec3 wh, float roughness) {
+float distribFunc(vec3 n, vec3 wh, float roughness) 
+{
     float alpha = roughness * roughness;
     float a2 = alpha * alpha;
 
@@ -43,13 +46,15 @@ float distribFunc(vec3 n, vec3 wh, float roughness) {
     return (nom / denom);
 }
 
-float gSub(float NdotV, float k) {
+float gSub(float NdotV, float k) 
+{
     float nom = NdotV;
     float denom = NdotV * (1.0f - k) + k;
     return nom / denom;
 }
 
-float geometricAtten(vec3 n, vec3 v, vec3 l, float k) {
+float geometricAtten(vec3 n, vec3 v, vec3 l, float k) 
+{
     float NdotV = max(dot(n, v), 0.0);
     float NdotL = max(dot(n, l), 0.0);
 
@@ -59,7 +64,8 @@ float geometricAtten(vec3 n, vec3 v, vec3 l, float k) {
     return gNV * gNL;
 }
 
-vec3 fresnelSchlick(float theta, vec3 R, float roughness) {
+vec3 fresnelSchlick(float theta, vec3 R, float roughness) 
+{
     //return R + (1.0 - R) * pow(1.0 - theta, 5.0);
     return R + (max(vec3(1.f - roughness), R) - R) * pow(1.f - theta, 5.0f);
 }
@@ -75,6 +81,21 @@ vec3 glint(vec3 wh, float targetNDF, float maxNDF, vec2 uv, vec2 duvdx, vec2 duv
     return vec3(0.);
 }
 
+const float DISTORTION = 0.9;
+const float SCALE = 9.0;
+const float AMBIENT = 0.9;
+const float GLOW = 1.0;
+
+vec3 subsurfaceColor(vec3 lightDir, vec3 normal, vec3 viewVec, float thin, vec3 albedo, vec3 lightColor, float glow) {
+    vec3 scatterDir = lightDir + normal * DISTORTION;
+    float lightReachingEye = pow(clamp(dot(viewVec, -scatterDir),
+                                       0.0, 1.0), glow) * SCALE;
+    float attenuation = max(0.0, dot(normal, lightDir)
+                            + dot(viewVec, -lightDir));
+    float totalLight = attenuation * (lightReachingEye + AMBIENT) * thin;
+    return albedo * lightColor * totalLight;
+}
+
 void main()
 {
     vec3 albedo = pow(texture(gAlbedo, fs_UV).rgb, vec3(2.2));
@@ -82,10 +103,15 @@ void main()
     float roughness = material.g;
     float metallic = material.r;
     vec3 normal = texture(gNormal, fs_UV).rgb;
-    float ao = 1.0;
+    float ao = aoVal;
+    float thickness = 0.0;
+
     if (u_EnableSSAO)
     {
-        ao = texture(u_SSAO, fs_UV).r;
+        // testing thickness
+        vec2 aoProps = texture(u_SSAO, fs_UV).rg;
+        ao *= aoProps.r;
+        thickness = aoProps.g;
     }
     if (u_DebugSSAO)
     {
@@ -172,12 +198,29 @@ void main()
     Lo += diffuse_lo + specular_lo;
     Lo *= ao;
 
+    // Subsurface Scattering
+    vec3 ssr = subsurfaceColor(-wo, 
+                                normal, 
+                                wo, 
+                                thickness, 
+                                albedo, 
+                                vec3(1, 0, 0) * diffuse_li, 
+                                GLOW);
+    // TO DO: ADD ADJUSTABLE TOGGLES FOR:
+    // - GLOW
+    // - DISTORTION
+    // - SCALE
+    // - AMBIENT
+    // - LIGHT COLOR
+    Lo += ssr;
+
+    // Gamma correction
     Lo = Lo / (vec3(1.0f) + Lo);
     float gamma = 2.2f;
     Lo = pow(Lo, vec3(1.0 / gamma));
 
+    // Render skybox logic
     float alpha = material.b;
-
     if (alpha != 1.0) {
         out_Col = vec4(vec3(1.), .0);
         return;

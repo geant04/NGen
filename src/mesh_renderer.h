@@ -23,6 +23,11 @@ private:
     glm::vec3 rotationAxis;
     float rotateTheta;
 
+    bool useAlbedoMap;
+    bool useRoughnessMap;
+    bool useMetallicMap;
+    bool useNormalMap;
+
 // note that in our deferred pipeline, we do not care about most of these
 public:
     MeshRenderer();
@@ -40,6 +45,7 @@ public:
     void LoadMetalMap(const char* albedoPath);
     void LoadRoughMap(const char* albedoPath);
     void setParams(glm::vec3 albedo, float metallic, float roughness);
+    void setMapToggles(bool useAlbedo, bool useRoughness, bool useMetallic, bool useNormal);
     void translate(glm::vec3 direction)
     {
         this->translation = direction;

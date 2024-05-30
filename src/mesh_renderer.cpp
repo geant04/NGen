@@ -29,8 +29,11 @@ void MeshRenderer::Draw(Camera *camera)
     shader.setFloat("u_roughness", roughness);
     shader.setFloat("u_metallic", metallic);
 
-    // leave this here for now
-    shader.setBool("useAlbedoMap", true);
+    // useProps
+    shader.setBool("useAlbedoMap", useAlbedoMap);
+    shader.setBool("useRoughnessMap", useRoughnessMap);
+    shader.setBool("useMetallicMap", useMetallicMap);
+    shader.setBool("useNormalMap", useNormalMap);
 
     // these maps are necessary for loading in proper PBR material data
     if (albedoMap.getTextureID() != -1) {
@@ -81,6 +84,14 @@ void MeshRenderer::setParams(glm::vec3 albedo, float metallic, float roughness)
     this->albedo = albedo;
     this->metallic = metallic;
     this->roughness = roughness;
+}
+
+void MeshRenderer::setMapToggles(bool useAlbedo, bool useRoughness, bool useMetallic, bool useNormal)
+{
+    this->useAlbedoMap = useAlbedo;
+    this->useRoughnessMap = useRoughness;
+    this->useMetallicMap = useMetallic;
+    this->useNormalMap = useNormal;
 }
 
 void MeshRenderer::LoadShader(const char* vert, const char* frag)
