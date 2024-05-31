@@ -11,6 +11,8 @@ public:
     Texture2D(const char* texturePath);
 
     void loadTexture(const char* texturePath);
+    void init();
+    void bufferPixelData(unsigned int width, unsigned int height, GLvoid *pixels, int nrChannels);
     bool loaded = false;
 
     unsigned int getTextureID() {

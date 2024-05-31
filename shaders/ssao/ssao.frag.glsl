@@ -14,6 +14,7 @@ in vec2 fs_UV;
 const float PI = 3.14159f;
 uniform float radius;
 uniform float aoStrength;
+uniform float sssStrength;
 
 float hash(vec2 p)
 {
@@ -97,6 +98,7 @@ void main()
     ao = clamp(pow(ao, aoStrength), 0, 1);
 
     thickness = (thickness / float(samples));
+    thickness = clamp(pow(thickness, sssStrength), 0, 1);
     
     outColor = vec2(ao, thickness);
 }

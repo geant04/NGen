@@ -21,6 +21,8 @@
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_opengl3.h"
 
+# define M_PI           3.14159265358979323846
+
 MyGL::MyGL()
 {
     init();
@@ -35,6 +37,7 @@ MyGL::~MyGL()
 unsigned int gBuffer, gPosition, gNormal, gAlbedo, gMaterial;
 unsigned int gDepthBuffer;
 unsigned int SSAObuffer, SSAOfbo;
+unsigned int blurbuffer, blurfbo;
 
 // camera
 const int WIDTH = 1280;
@@ -134,6 +137,47 @@ void setupGBuffer();
 
 void setupSSAO();
 
+std::vector<GLfloat> computeGaussianKernel(int radius) {
+    float sigma = glm::max(radius * 0.5f, 1.f);
+    float sigma2 = sigma * sigma;
+    int kernelWidth = radius * 2 + 1;
+    std::vector<GLfloat> kernel =
+            std::vector<GLfloat>(kernelWidth, 0.f);
+
+    float sum = 0;
+
+    for (int x = -radius; x < radius; x++) {
+        float sign = 1.0 / sqrt(2 * M_PI * sigma2);
+        float param = -1.0 * (x * x) / (2.0 * sigma2);
+        float gauss = sign * exp(param);
+
+        kernel[x + radius] = gauss;
+        sum += gauss;
+    }
+
+    // new weights....
+    std::vector<GLfloat> newKernel =
+        std::vector<GLfloat>(kernelWidth / 2 + 1, 0.f);
+    int newKernelWidth = kernelWidth / 2 + 1;
+
+    for (int i = 0; i < newKernelWidth; i += 2) {
+        float weight1 = kernel[i];
+        float weight2 = kernel[i + 1];
+
+        float weightL = weight1 + weight2;
+
+        newKernel[i / 2] = weightL;
+    }
+
+    for (int i = 0; i < (newKernelWidth); i++) {
+        newKernel[i] /= sum;
+    }
+
+    return newKernel;
+}
+
+void setupBlur();
+
 void MyGL::init() 
 {
     // glfw initialization
@@ -184,7 +228,7 @@ void MyGL::init()
 
     MeshRenderer meshRenderer;
     meshRenderer.SetMesh(&ourMesh);
-    meshRenderer.LoadMaterials("textures/pbrGold/gold-scuffed_basecolor-boosted.png",
+    meshRenderer.LoadMaterials("textures/jade/jade_albedo.jpg",
                                "textures/pbrWood/mahogfloor_normal.png",
                                "textures/pbrGold/gold-scuffed_metallic.png",
                                "textures/pbrGold/gold-scuffed_roughness.png");
@@ -249,8 +293,18 @@ void MyGL::init()
     float SSAOstrength = 1.4;
     int SSAOsamples = 16;
 
+    glm::vec3 SSSColor = glm::vec3(0.5f, 0.0f, 0.0f);
+    float sssColor[3] = {SSSColor.r, SSSColor.g, SSSColor.b};
+    float sss_distortion = 0.9;
+    float sss_scale = 9.0;
+    float sss_ambient = 0.9;
+    float sss_glow = 1.0;
+    float sss_strength = 0.2;
+
     // render loop
     // --------------------------
+
+    // TO DO: ABSTRACT SSAO, DEFERRED RENDERING, AND GAUSSIAN BLUR
 
     // deferred rendering setup
     Shader deferredShader;
@@ -278,6 +332,20 @@ void MyGL::init()
     SSAOShader.setInt("gPosition", 0);
     SSAOShader.setInt("gNormal", 1);
     setupSSAO();
+
+    // Blur setup
+    Shader BlurShader;
+    BlurShader = Shader("shaders/ssao/ssao.vert.glsl", "shaders/deferred/blur.frag.glsl");
+    BlurShader.use();
+    BlurShader.setInt("sampleTexture", 0);
+    BlurShader.setInt("kernel", 1);
+    BlurShader.setInt("kernelRadius", 8);
+
+    std::vector<GLfloat> kernel = computeGaussianKernel(8);
+    Texture2D gaussKernel;
+    gaussKernel.init();
+    gaussKernel.bufferPixelData(9, 1, kernel.data(), 1);
+    setupBlur();
 
     // for testing purposes
     Shader testQuad;
@@ -331,7 +399,7 @@ void MyGL::init()
         meshRenderer.setParams(u_Albedo, u_Metallic, u_Roughness);
         meshRenderer.setMapToggles(useAlbedoMap, useRoughnessMap, useMetallicMap, useNormalMap);
 
-        for ( unsigned int i = 0; i < 9; i++) {
+        for ( unsigned int i = 0; i < 1; i++) {
             float spread = 4.5;
             glm::vec3 pos = testPositions[i] * spread;
             meshRenderer.translate(pos);
@@ -344,6 +412,7 @@ void MyGL::init()
         // apply SSAO + honestly use this for SSR too?
         if (showSSAO)
         {
+            glViewport(0, 0, WIDTH / 2, HEIGHT / 2);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             glBindFramebuffer(GL_FRAMEBUFFER, SSAOfbo);
 
@@ -360,9 +429,41 @@ void MyGL::init()
             SSAOShader.setInt("samples", SSAOsamples);
             SSAOShader.setFloat("radius", SSAOradius);
             SSAOShader.setFloat("aoStrength", SSAOstrength);
+            SSAOShader.setFloat("sssStrength", sss_strength);
             envMap.renderQuad();
 
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+            // TO DO: Refactor this, this should be a function called blur() or something eventually
+            // PASS 1
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glBindFramebuffer(GL_FRAMEBUFFER, blurfbo);
+
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, SSAObuffer);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, gaussKernel.getTextureID());
+            
+            BlurShader.use();
+            BlurShader.setInt("u_PingPong", 0);
+            envMap.renderQuad();
+
+            // PASS 2
+            // rewrite to SSAO fbo
+            glBindFramebuffer(GL_FRAMEBUFFER, SSAOfbo);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            
+            // re-assign sample texture
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, blurbuffer);
+
+            BlurShader.use();
+            BlurShader.setInt("u_PingPong", 1);
+            envMap.renderQuad();
+
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            
+            glViewport(0, 0, WIDTH, HEIGHT);
         }
 
         // use deferred lighting shader
@@ -381,6 +482,11 @@ void MyGL::init()
         deferredShader.setBool("u_EnableSSAO", showSSAO);
         deferredShader.setBool("u_DebugSSAO", showSSAODebug);
         deferredShader.setFloat("aoVal", u_AmbientOcclusion);
+        deferredShader.setVec3("u_SSSColor", SSSColor);
+        deferredShader.setFloat("u_Distortion", sss_distortion);
+        deferredShader.setFloat("u_Scale", sss_scale);
+        deferredShader.setFloat("u_Ambient", sss_ambient);
+        deferredShader.setFloat("u_Glow", sss_glow);
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, gPosition);
@@ -454,10 +560,20 @@ void MyGL::init()
         if (ImGui::CollapsingHeader("SSAO Settings"))
         {
             ImGui::Checkbox("Enable SSAO", &showSSAO);
-            ImGui::SliderInt("Samples", &SSAOsamples, 0, 20);
+            ImGui::SliderInt("Samples", &SSAOsamples, 0, 40);
             ImGui::SliderFloat("Radius", &SSAOradius, 0.0f, 1.0f);
             ImGui::SliderFloat("Strength", &SSAOstrength, 0.0f, 2.5f);
             ImGui::Checkbox("SSAO Debug", &showSSAODebug);
+        }
+
+        if (ImGui::CollapsingHeader("SSS Settings"))
+        {
+            ImGui::ColorEdit3("SSS Color", sssColor);
+            ImGui::SliderFloat("Distortion", &sss_distortion, 0.0f, 2.0f);
+            ImGui::SliderFloat("Scale", &sss_scale, 0.0f, 20.f);
+            ImGui::SliderFloat("Ambient", &sss_ambient, 0.0f, 2.0f);
+            ImGui::SliderFloat("Glow", &sss_glow, 0.0f, 2.0f);
+            ImGui::SliderFloat("Inv. Strength", &sss_strength, 0.0f, 1.0f);
         }
 
         ImGui::End();
@@ -466,6 +582,7 @@ void MyGL::init()
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         u_Albedo = glm::vec3(color[0], color[1], color[2]);
+        SSSColor = glm::vec3(sssColor[0], sssColor[1], sssColor[2]);
 
         // check and call events and swap the buffers
         glfwSwapBuffers(window);
@@ -539,18 +656,44 @@ void setupSSAO() // + thickness
     glGenFramebuffers(1, &SSAOfbo);
     glBindFramebuffer(GL_FRAMEBUFFER, SSAOfbo);
 
-    // TODO: CHANGE THIS TO A GL_RED, WASTING CHANNELS OTHERWISE
     glGenTextures(1, &SSAObuffer);
     glBindTexture(GL_TEXTURE_2D, SSAObuffer);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16, WIDTH, HEIGHT, 0, GL_RG, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16, WIDTH / 2, HEIGHT / 2, 0, GL_RG, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, SSAObuffer, 0);
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cout << "Framebuffer not complete!" << std::endl;
 
     // worry about blurring and all of those fancy techniques later
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void setupBlur()
+{
+    glGenFramebuffers(1, &blurfbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, blurfbo);
+
+    glGenTextures(1, &blurbuffer);
+    glBindTexture(GL_TEXTURE_2D, blurbuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, WIDTH / 2, HEIGHT / 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, blurbuffer, 0);
+
+    // GLuint attachments[1] = { GL_COLOR_ATTACHMENT0 };
+    // glDrawBuffers(1, attachments);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "Framebuffer not complete!" << std::endl;
+
+    std::cout << "blur setup complete" << std::endl;
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }

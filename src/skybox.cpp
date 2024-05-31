@@ -25,12 +25,10 @@ void Skybox::initCaptures()
     if (captureFBO == 0)
     {
         glGenFramebuffers(1, &captureFBO);
-        std::cout << "generated captureFBO id: " << captureFBO << std::endl;
     }
     if (captureRBO == 0)
     {
         glGenRenderbuffers(1, &captureRBO);
-        std::cout << "generated captureRBO id: " << captureFBO << std::endl;
     }
 }
 
@@ -213,7 +211,6 @@ void Skybox::loadHDR(const char* texturePath)
     {
         glGenTextures(1, &hdrTexture);
         glBindTexture(GL_TEXTURE_2D, hdrTexture);
-        std::cout << "new HDR: " << hdrTexture << std::endl;
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, data);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, data); // note how we specify the texture's data value to be float
 
@@ -227,7 +224,6 @@ void Skybox::loadHDR(const char* texturePath)
         std::cout << "Failed to load HDR" << std::endl;
         return;
     }
-    std::cout << "hdr loaded"  << std::endl;
 
     glm::mat4 captureViews[6] = {
         glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3( 1.0f,  0.0f,  0.0f), glm::vec3(0.0f, -1.0f,  0.0f)),
@@ -241,7 +237,6 @@ void Skybox::loadHDR(const char* texturePath)
     // initialzie a cubemap
     glGenTextures(1, &cubemap);
     glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap);
-    std::cout << "built a cubemap " << cubemap << std::endl;
 
     // allocate  texture2D memory for each face
     for ( unsigned int i = 0; i < 6; i++) 
@@ -256,7 +251,6 @@ void Skybox::loadHDR(const char* texturePath)
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    std::cout << "cubemap should be generated on GPU" << std::endl;
 
     equirectangularToCubemapShader = Shader("shaders/hdr/envCubeMap.vert.glsl", "shaders/hdr/envCubeMap.frag.glsl");
     equirectangularToCubemapShader.use();
@@ -297,7 +291,6 @@ void Skybox::createIrradianceMap()
 
     glGenTextures(1, &irradianceMap);
     glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceMap);
-    std::cout << "irradiance map ID: " << irradianceMap << std::endl;
 
     // 32 x 32 size cubemap
     for (unsigned int i = 0; i < 6; i++) {
@@ -405,7 +398,6 @@ void Skybox::createSpecularMap()
             renderCube();
         }
     }
-    std::cout << "done making specular map" << std::endl;
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 

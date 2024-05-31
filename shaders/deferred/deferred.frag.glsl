@@ -2,6 +2,11 @@
 out vec4 out_Col;
 
 uniform vec3 u_CamPos;
+uniform vec3 u_SSSColor;
+uniform float u_Distortion;
+uniform float u_Scale;
+uniform float u_Ambient;
+uniform float u_Glow;
 
 uniform sampler2D gAlbedo;
 uniform sampler2D gNormal;
@@ -81,18 +86,13 @@ vec3 glint(vec3 wh, float targetNDF, float maxNDF, vec2 uv, vec2 duvdx, vec2 duv
     return vec3(0.);
 }
 
-const float DISTORTION = 0.9;
-const float SCALE = 9.0;
-const float AMBIENT = 0.9;
-const float GLOW = 1.0;
-
 vec3 subsurfaceColor(vec3 lightDir, vec3 normal, vec3 viewVec, float thin, vec3 albedo, vec3 lightColor, float glow) {
-    vec3 scatterDir = lightDir + normal * DISTORTION;
+    vec3 scatterDir = lightDir + normal * u_Distortion;
     float lightReachingEye = pow(clamp(dot(viewVec, -scatterDir),
-                                       0.0, 1.0), glow) * SCALE;
+                                       0.0, 1.0), glow) * u_Scale;
     float attenuation = max(0.0, dot(normal, lightDir)
                             + dot(viewVec, -lightDir));
-    float totalLight = attenuation * (lightReachingEye + AMBIENT) * thin;
+    float totalLight = attenuation * (lightReachingEye + u_Ambient) * thin;
     return albedo * lightColor * totalLight;
 }
 
@@ -115,7 +115,7 @@ void main()
     }
     if (u_DebugSSAO)
     {
-        out_Col = vec4(vec3(ao), 1.0);
+        out_Col = vec4(texture(u_SSAO, fs_UV).rgb, 1.0);
         return;
     }
 
@@ -204,14 +204,8 @@ void main()
                                 wo, 
                                 thickness, 
                                 albedo, 
-                                vec3(1, 0, 0) * diffuse_li, 
-                                GLOW);
-    // TO DO: ADD ADJUSTABLE TOGGLES FOR:
-    // - GLOW
-    // - DISTORTION
-    // - SCALE
-    // - AMBIENT
-    // - LIGHT COLOR
+                                u_SSSColor * diffuse_li, 
+                                u_Glow);
     Lo += ssr;
 
     // Gamma correction
