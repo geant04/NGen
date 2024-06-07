@@ -22,6 +22,7 @@
 #include "imgui/imgui_impl_opengl3.h"
 
 #include "deferred.h"
+#include "SSAO.h"
 
 # define M_PI           3.14159265358979323846
 
@@ -33,11 +34,8 @@ MyGL::MyGL()
 MyGL::~MyGL()
 {
     // clean up
+    glfwTerminate();
 }
-
-// buffer set ups for deferred rendering
-unsigned int SSAObuffer, SSAOfbo;
-unsigned int blurbuffer, blurfbo;
 
 // camera
 const int WIDTH = 1280;
@@ -132,51 +130,6 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
         mousePressed = false;
     }
 }
-
-void setupGBuffer();
-
-void setupSSAO();
-
-std::vector<GLfloat> computeGaussianKernel(int radius) {
-    float sigma = glm::max(radius * 0.5f, 1.f);
-    float sigma2 = sigma * sigma;
-    int kernelWidth = radius * 2 + 1;
-    std::vector<GLfloat> kernel =
-            std::vector<GLfloat>(kernelWidth, 0.f);
-
-    float sum = 0;
-
-    for (int x = -radius; x < radius; x++) {
-        float sign = 1.0 / sqrt(2 * M_PI * sigma2);
-        float param = -1.0 * (x * x) / (2.0 * sigma2);
-        float gauss = sign * exp(param);
-
-        kernel[x + radius] = gauss;
-        sum += gauss;
-    }
-
-    // new weights....
-    std::vector<GLfloat> newKernel =
-        std::vector<GLfloat>(kernelWidth / 2 + 1, 0.f);
-    int newKernelWidth = kernelWidth / 2 + 1;
-
-    for (int i = 0; i < newKernelWidth; i += 2) {
-        float weight1 = kernel[i];
-        float weight2 = kernel[i + 1];
-
-        float weightL = weight1 + weight2;
-
-        newKernel[i / 2] = weightL;
-    }
-
-    for (int i = 0; i < (newKernelWidth); i++) {
-        newKernel[i] /= sum;
-    }
-
-    return newKernel;
-}
-
-void setupBlur();
 
 void MyGL::init() 
 {
@@ -306,34 +259,16 @@ void MyGL::init()
 
     // TO DO: ABSTRACT SSAO, DEFERRED RENDERING, AND GAUSSIAN BLUR
 
+    // Deferred rendering setup
     DeferredFramebuffer deferred;
     deferred.Create(WIDTH, HEIGHT);
     unsigned int gBuffer = deferred.GetGBuffer();
-    
+
     // SSAO setup
-    // the vert shaders for SSAO and brdfLUT are identical
-
-    Shader SSAOShader;
-    SSAOShader = Shader("shaders/ssao/ssao.vert.glsl", "shaders/ssao/ssao.frag.glsl");
-    SSAOShader.use();
-    SSAOShader.setInt("gPosition", 0);
-    SSAOShader.setInt("gNormal", 1);
-    setupSSAO();
-
-    // Blur setup
     unsigned int kernelRadius = 10;
-    std::vector<GLfloat> kernel = computeGaussianKernel(kernelRadius);
-    Texture2D gaussKernel;
-    gaussKernel.init();
-    gaussKernel.bufferPixelData(kernelRadius + 1, 1, kernel.data(), 1);
-    setupBlur();
-
-    Shader BlurShader;
-    BlurShader = Shader("shaders/ssao/ssao.vert.glsl", "shaders/deferred/blur.frag.glsl");
-    BlurShader.use();
-    BlurShader.setInt("sampleTexture", 0);
-    BlurShader.setInt("kernel", 1);
-    BlurShader.setInt("kernelRadius", kernelRadius);
+    SSAO ssao = SSAO(SSAOradius, SSAOstrength, SSAOsamples, kernelRadius);
+    ssao.Create(WIDTH, HEIGHT, true);
+    ssao.AssignParams(SSAOsamples, SSAOradius, SSAOstrength, sss_strength);
 
     // for testing purposes
     Shader testQuad;
@@ -400,60 +335,9 @@ void MyGL::init()
         // apply SSAO + honestly use this for SSR too?
         if (showSSAO)
         {
-            glViewport(0, 0, WIDTH / 2, HEIGHT / 2);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            glBindFramebuffer(GL_FRAMEBUFFER, SSAOfbo);
-
-            // bind textures
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, deferred.GetGPosition());
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, deferred.GetGNormal());
-
-            // use SSAO shader
-            SSAOShader.use();
-            SSAOShader.setMat4("projection", camera.getProjectionMatrix());
-            SSAOShader.setMat4("view", camera.getViewMatrix());
-            SSAOShader.setInt("samples", SSAOsamples);
-            SSAOShader.setFloat("radius", SSAOradius);
-            SSAOShader.setFloat("aoStrength", SSAOstrength);
-            SSAOShader.setFloat("sssStrength", sss_strength);
-            Skybox::renderQuad();
-
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-            // TO DO: Refactor this, this should be a function called blur() or something eventually
-            // PASS 1
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            glBindFramebuffer(GL_FRAMEBUFFER, blurfbo);
-
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, SSAObuffer);
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, gaussKernel.getTextureID());
-            
-            BlurShader.use();
-            BlurShader.setBool("isAO", true);
-            BlurShader.setInt("u_PingPong", 0);
-            Skybox::renderQuad();
-
-            // PASS 2
-            // rewrite to SSAO fbo
-            glBindFramebuffer(GL_FRAMEBUFFER, SSAOfbo);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            
-            // re-assign sample texture
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, blurbuffer);
-
-            BlurShader.use();
-            BlurShader.setBool("isAO", true);
-            BlurShader.setInt("u_PingPong", 1);
-            Skybox::renderQuad();
-
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            
-            glViewport(0, 0, WIDTH, HEIGHT);
+            // SSAO pass
+            ssao.AssignParams(SSAOsamples, SSAOradius, SSAOstrength, sss_strength);
+            ssao.SSAOPass(deferred.GetGPosition(), deferred.GetGNormal(), camera);
         }
 
         // use deferred lighting shader
@@ -495,7 +379,7 @@ void MyGL::init()
         glActiveTexture(GL_TEXTURE6);
         glBindTexture(GL_TEXTURE_2D, envMap.getBRDFLUT());
         glActiveTexture(GL_TEXTURE7);
-        glBindTexture(GL_TEXTURE_2D, SSAObuffer);
+        glBindTexture(GL_TEXTURE_2D, ssao.GetSSAOBuffer());
 
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -585,51 +469,4 @@ void MyGL::init()
     
     // clean up
     glfwTerminate();
-}
-
-void setupSSAO() // + thickness
-{
-    glGenFramebuffers(1, &SSAOfbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, SSAOfbo);
-
-    glGenTextures(1, &SSAObuffer);
-    glBindTexture(GL_TEXTURE_2D, SSAObuffer);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16, WIDTH / 2, HEIGHT / 2, 0, GL_RG, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, SSAObuffer, 0);
-
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        std::cout << "Framebuffer not complete!" << std::endl;
-
-    // worry about blurring and all of those fancy techniques later
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
-
-void setupBlur()
-{
-    glGenFramebuffers(1, &blurfbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, blurfbo);
-
-    glGenTextures(1, &blurbuffer);
-    glBindTexture(GL_TEXTURE_2D, blurbuffer);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, WIDTH / 2, HEIGHT / 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, blurbuffer, 0);
-
-    // GLuint attachments[1] = { GL_COLOR_ATTACHMENT0 };
-    // glDrawBuffers(1, attachments);
-
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        std::cout << "Framebuffer not complete!" << std::endl;
-
-    std::cout << "blur setup complete" << std::endl;
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
