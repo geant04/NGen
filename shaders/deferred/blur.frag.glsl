@@ -4,9 +4,16 @@ uniform sampler2D sampleTexture;
 uniform sampler2D kernel;
 uniform int kernelRadius;
 uniform int u_PingPong;
+uniform bool isAO;
 
 in vec2 fs_UV;
 out vec4 out_Col;
+
+void aoFlip(inout vec4 color, in bool isAO) {
+    // if (isAO) {
+    //     color.r = 1.0 - color.r;
+    // }
+}
 
 void main() {
     // TODO: Apply a Gaussian blur to the screen-space reflection
@@ -16,8 +23,8 @@ void main() {
 
     vec4 fragColor = texture(sampleTexture, fs_UV);
     float initWeight = texture(kernel, vec2(0.50, 1.0)).r;
-
-    fragColor *= initWeight / 2.0;
+    float boolAO = float(isAO);
+    aoFlip(fragColor, isAO);
 
     int bilinearRadius = kernelRadius / 2;
 
@@ -30,14 +37,17 @@ void main() {
             dir = vec2((float(i) / texSize.y), 0.);
         }
 
-        fragColor +=
-            texture(sampleTexture, fs_UV + dir)
-                 * weight;
+        vec4 color = texture(sampleTexture, fs_UV + dir);
+        aoFlip(color, isAO);
 
-        fragColor +=
-            texture(sampleTexture, fs_UV - dir)
-                 * weight;
+        fragColor += color * weight;
+
+        color = texture(sampleTexture, fs_UV - dir);
+        aoFlip(color, isAO);
+
+        fragColor += color * weight;
     }
 
+    aoFlip(fragColor, isAO);
     out_Col = fragColor;
 }

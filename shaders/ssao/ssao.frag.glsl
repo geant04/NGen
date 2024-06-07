@@ -16,9 +16,25 @@ uniform float radius;
 uniform float aoStrength;
 uniform float sssStrength;
 
+const float goldenRatioConjugate = 0.61803398875f;
+
 float hash(vec2 p)
 {
     return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+// shadertoy hash without sine
+vec2 hash21(float p)
+{
+    vec3 p3 = fract(vec3(p) * vec3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.xx + p3.yz) * p3.zy);
+}
+
+float blueNoise(float input, int frame)
+{
+    // to do: sample the blue noise texture
+    return fract(input + float(frame) * goldenRatioConjugate);
 }
 
 void main()
@@ -60,7 +76,7 @@ void main()
 
         // create a tangent sample vector, ao sampling
         vec3 sample = TBN * vec3(x, y, z);
-        vec3 offsetPos = worldPos + sample * radius;
+        vec3 offsetPos = worldPos + normalize(sample) * radius;
 
         vec4 offset = projection * view * vec4(offsetPos, 1.0);
         offset.xyz /= offset.w;

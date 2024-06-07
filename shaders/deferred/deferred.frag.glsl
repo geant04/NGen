@@ -172,6 +172,15 @@ void main()
 
             // irradiance is l_i, bsdf is bsdf, pdf = 1.0, and account for the lambert
             Lo += f * irradiance * max(dot(wi, normal), 0.);
+
+            // subsurface scattering
+            Lo += subsurfaceColor(-wo,
+                                normal, 
+                                wo, 
+                                thickness, 
+                                albedo, 
+                                irradiance, 
+                                u_Glow);
         }
         Lo += intensity;
     }

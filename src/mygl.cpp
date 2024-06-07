@@ -291,15 +291,15 @@ void MyGL::init()
     bool showSSAODebug = true;
     float SSAOradius = 0.314;
     float SSAOstrength = 1.4;
-    int SSAOsamples = 16;
+    int SSAOsamples = 40;
 
-    glm::vec3 SSSColor = glm::vec3(0.5f, 0.0f, 0.0f);
+    glm::vec3 SSSColor = glm::vec3(1.f, 1.0f, 1.0f);
     float sssColor[3] = {SSSColor.r, SSSColor.g, SSSColor.b};
-    float sss_distortion = 0.9;
-    float sss_scale = 9.0;
-    float sss_ambient = 0.9;
-    float sss_glow = 1.0;
-    float sss_strength = 0.2;
+    float sss_distortion = 0.352;
+    float sss_scale = 1.0;
+    float sss_ambient = 0.2;
+    float sss_glow = 2;
+    float sss_strength = 1.0;
 
     // render loop
     // --------------------------
@@ -399,7 +399,7 @@ void MyGL::init()
         meshRenderer.setParams(u_Albedo, u_Metallic, u_Roughness);
         meshRenderer.setMapToggles(useAlbedoMap, useRoughnessMap, useMetallicMap, useNormalMap);
 
-        for ( unsigned int i = 0; i < 1; i++) {
+        for ( unsigned int i = 0; i < 3; i++) {
             float spread = 4.5;
             glm::vec3 pos = testPositions[i] * spread;
             meshRenderer.translate(pos);
@@ -445,6 +445,7 @@ void MyGL::init()
             glBindTexture(GL_TEXTURE_2D, gaussKernel.getTextureID());
             
             BlurShader.use();
+            BlurShader.setBool("isAO", true);
             BlurShader.setInt("u_PingPong", 0);
             envMap.renderQuad();
 
@@ -458,6 +459,7 @@ void MyGL::init()
             glBindTexture(GL_TEXTURE_2D, blurbuffer);
 
             BlurShader.use();
+            BlurShader.setBool("isAO", true);
             BlurShader.setInt("u_PingPong", 1);
             envMap.renderQuad();
 
