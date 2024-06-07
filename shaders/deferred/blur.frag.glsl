@@ -10,9 +10,9 @@ in vec2 fs_UV;
 out vec4 out_Col;
 
 void aoFlip(inout vec4 color, in bool isAO) {
-    // if (isAO) {
-    //     color.r = 1.0 - color.r;
-    // }
+    if (isAO) {
+        color.r = 1.0 - color.r;
+    }
 }
 
 void main() {
@@ -25,6 +25,8 @@ void main() {
     float initWeight = texture(kernel, vec2(0.50, 1.0)).r;
     float boolAO = float(isAO);
     aoFlip(fragColor, isAO);
+
+    fragColor *= initWeight;
 
     int bilinearRadius = kernelRadius / 2;
 

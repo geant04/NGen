@@ -111,7 +111,7 @@ void main()
     }
 
     ao = 1.0 - (ao / float(samples));
-    ao = clamp(pow(ao, aoStrength), 0, 1);
+    ao = clamp(1.2 * pow(ao, aoStrength), 0, 1);
 
     thickness = (thickness / float(samples));
     thickness = clamp(pow(thickness, sssStrength), 0, 1);

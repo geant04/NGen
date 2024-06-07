@@ -21,6 +21,8 @@
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_opengl3.h"
 
+#include "deferred.h"
+
 # define M_PI           3.14159265358979323846
 
 MyGL::MyGL()
@@ -34,8 +36,6 @@ MyGL::~MyGL()
 }
 
 // buffer set ups for deferred rendering
-unsigned int gBuffer, gPosition, gNormal, gAlbedo, gMaterial;
-unsigned int gDepthBuffer;
 unsigned int SSAObuffer, SSAOfbo;
 unsigned int blurbuffer, blurfbo;
 
@@ -306,23 +306,10 @@ void MyGL::init()
 
     // TO DO: ABSTRACT SSAO, DEFERRED RENDERING, AND GAUSSIAN BLUR
 
-    // deferred rendering setup
-    Shader deferredShader;
-    deferredShader = Shader("shaders/deferred/deferred.vert.glsl", "shaders/deferred/deferred.frag.glsl");
-    deferredShader.use();
-    deferredShader.setInt("gPosition", 0);
-    deferredShader.setInt("gNormal", 1);
-    deferredShader.setInt("gAlbedo", 2);
-    deferredShader.setInt("gMaterial", 3);
-    deferredShader.setInt("u_IrradianceMap", 4);
-    deferredShader.setInt("u_SpecularMap", 5);
-    deferredShader.setInt("u_BRDFLUT", 6);
-    deferredShader.setInt("u_SSAO", 7);
-
-    // GBuffer setup
-    glEnable(GL_DEPTH_TEST);
-    setupGBuffer();
-
+    DeferredFramebuffer deferred;
+    deferred.Create(WIDTH, HEIGHT);
+    unsigned int gBuffer = deferred.GetGBuffer();
+    
     // SSAO setup
     // the vert shaders for SSAO and brdfLUT are identical
 
@@ -334,18 +321,19 @@ void MyGL::init()
     setupSSAO();
 
     // Blur setup
+    unsigned int kernelRadius = 10;
+    std::vector<GLfloat> kernel = computeGaussianKernel(kernelRadius);
+    Texture2D gaussKernel;
+    gaussKernel.init();
+    gaussKernel.bufferPixelData(kernelRadius + 1, 1, kernel.data(), 1);
+    setupBlur();
+
     Shader BlurShader;
     BlurShader = Shader("shaders/ssao/ssao.vert.glsl", "shaders/deferred/blur.frag.glsl");
     BlurShader.use();
     BlurShader.setInt("sampleTexture", 0);
     BlurShader.setInt("kernel", 1);
-    BlurShader.setInt("kernelRadius", 8);
-
-    std::vector<GLfloat> kernel = computeGaussianKernel(8);
-    Texture2D gaussKernel;
-    gaussKernel.init();
-    gaussKernel.bufferPixelData(9, 1, kernel.data(), 1);
-    setupBlur();
+    BlurShader.setInt("kernelRadius", kernelRadius);
 
     // for testing purposes
     Shader testQuad;
@@ -418,9 +406,9 @@ void MyGL::init()
 
             // bind textures
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, gPosition);
+            glBindTexture(GL_TEXTURE_2D, deferred.GetGPosition());
             glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, gNormal);
+            glBindTexture(GL_TEXTURE_2D, deferred.GetGNormal());
 
             // use SSAO shader
             SSAOShader.use();
@@ -430,7 +418,7 @@ void MyGL::init()
             SSAOShader.setFloat("radius", SSAOradius);
             SSAOShader.setFloat("aoStrength", SSAOstrength);
             SSAOShader.setFloat("sssStrength", sss_strength);
-            envMap.renderQuad();
+            Skybox::renderQuad();
 
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -447,7 +435,7 @@ void MyGL::init()
             BlurShader.use();
             BlurShader.setBool("isAO", true);
             BlurShader.setInt("u_PingPong", 0);
-            envMap.renderQuad();
+            Skybox::renderQuad();
 
             // PASS 2
             // rewrite to SSAO fbo
@@ -461,7 +449,7 @@ void MyGL::init()
             BlurShader.use();
             BlurShader.setBool("isAO", true);
             BlurShader.setInt("u_PingPong", 1);
-            envMap.renderQuad();
+            Skybox::renderQuad();
 
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             
@@ -479,6 +467,7 @@ void MyGL::init()
             glDepthMask(GL_TRUE);
         }
 
+        Shader deferredShader = deferred.GetShader();
         deferredShader.use();
         deferredShader.setVec3("u_CamPos", camera.eye);
         deferredShader.setBool("u_EnableSSAO", showSSAO);
@@ -491,16 +480,14 @@ void MyGL::init()
         deferredShader.setFloat("u_Glow", sss_glow);
 
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, gPosition);
+        glBindTexture(GL_TEXTURE_2D, deferred.GetGPosition());
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, gNormal);
+        glBindTexture(GL_TEXTURE_2D, deferred.GetGNormal());
         glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, gAlbedo);
+        glBindTexture(GL_TEXTURE_2D, deferred.GetGAlbedo());
         glActiveTexture(GL_TEXTURE3);
-        glBindTexture(GL_TEXTURE_2D, gMaterial);
-        // assign diffuse map
-        // assign glossy map
-        // assign BRDF_LUT map
+        glBindTexture(GL_TEXTURE_2D, deferred.GetGMaterial());
+        
         glActiveTexture(GL_TEXTURE4);
         glBindTexture(GL_TEXTURE_CUBE_MAP, envMap.getIrradianceMap());
         glActiveTexture(GL_TEXTURE5);
@@ -512,7 +499,7 @@ void MyGL::init()
 
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        envMap.renderQuad();
+        Skybox::renderQuad();
         glDisable(GL_BLEND);
 
         // some combination final pass to combine SSAO and our deferred render
@@ -550,19 +537,19 @@ void MyGL::init()
 
         if (ImGui::CollapsingHeader("Deferred Outputs"))
         {
-            ImGui::Image((void*)(intptr_t) gPosition, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+            ImGui::Image((void*)(intptr_t) deferred.GetGPosition(), ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
             ImGui::SameLine();
-            ImGui::Image((void*)(intptr_t) gNormal, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+            ImGui::Image((void*)(intptr_t) deferred.GetGNormal(), ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
 
-            ImGui::Image((void*)(intptr_t) gAlbedo, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+            ImGui::Image((void*)(intptr_t) deferred.GetGAlbedo(), ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
             ImGui::SameLine();
-            ImGui::Image((void*)(intptr_t) gMaterial, ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+            ImGui::Image((void*)(intptr_t) deferred.GetGMaterial(), ImVec2(160,100), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
         }
 
         if (ImGui::CollapsingHeader("SSAO Settings"))
         {
             ImGui::Checkbox("Enable SSAO", &showSSAO);
-            ImGui::SliderInt("Samples", &SSAOsamples, 0, 40);
+            ImGui::SliderInt("Samples", &SSAOsamples, 0, 100);
             ImGui::SliderFloat("Radius", &SSAOradius, 0.0f, 1.0f);
             ImGui::SliderFloat("Strength", &SSAOstrength, 0.0f, 2.5f);
             ImGui::Checkbox("SSAO Debug", &showSSAODebug);
@@ -598,59 +585,6 @@ void MyGL::init()
     
     // clean up
     glfwTerminate();
-}
-
-void setupGBuffer()
-{
-    glGenFramebuffers(1, &gBuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
-
-    // generate position buffer -- id: 0
-    glGenTextures(1, &gPosition);
-    glBindTexture(GL_TEXTURE_2D, gPosition);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, WIDTH, HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gPosition, 0);
-
-    // generate normal buffer -- id: 1
-    glGenTextures(1, &gNormal);
-    glBindTexture(GL_TEXTURE_2D, gNormal);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, WIDTH, HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gNormal, 0);
-
-    // generate albedo buffer -- id: 2
-    glGenTextures(1, &gAlbedo);
-    glBindTexture(GL_TEXTURE_2D, gAlbedo);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gAlbedo, 0);
-
-    // generate material buffer -- id: 3
-    glGenTextures(1, &gMaterial);
-    glBindTexture(GL_TEXTURE_2D, gMaterial);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, WIDTH, HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, gMaterial, 0);
-
-    // write to four textures, but I'm going to be honest we probably don't need the fourth one
-    GLuint attachments[4] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
-    glDrawBuffers(4, attachments);
-
-    glGenRenderbuffers(1, &gDepthBuffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, gDepthBuffer);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, WIDTH, HEIGHT);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, gDepthBuffer);
-
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        std::cout << "Framebuffer not complete!" << std::endl;
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void setupSSAO() // + thickness

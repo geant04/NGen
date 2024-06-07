@@ -9,7 +9,7 @@ public:
     ~DeferredFramebuffer();
 
     void Create(unsigned int WIDTH, unsigned int HEIGHT);
-    void Draw();
+    void DrawLighting();
     void Clear();
 
 // TO DO: MERGE AO/THICKNESS DETAILS INTO gMaterial or distribute them to gAlbedo and gNormal

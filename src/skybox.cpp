@@ -2,9 +2,11 @@
 #include "stb/stb_image.h"
 #include <glad/glad.h>
 
+unsigned int Skybox::quadVAO = 0;
+unsigned int Skybox::quadVBO = 0;
+
 Skybox::Skybox()
     : VAO(0),
-      quadVAO(0),
       captureFBO(0),
       captureRBO(0),
       hdrTexture(0),

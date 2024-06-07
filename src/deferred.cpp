@@ -3,7 +3,7 @@
 DeferredFramebuffer::DeferredFramebuffer()
 : gBuffer(0), gPosition(0), gNormal(0), gAlbedo(0), gMaterial(0), rboDepth(0)
 {
-    deferredShader = Shader("shaders/deferred.vert", "shaders/deferred.frag");
+    deferredShader = Shader("shaders/deferred/lighting.vert.glsl", "shaders/deferred/lighting.frag.glsl");
     deferredShader.use();
     deferredShader.setInt("gPosition", 0);
     deferredShader.setInt("gNormal", 1);
@@ -13,6 +13,16 @@ DeferredFramebuffer::DeferredFramebuffer()
     deferredShader.setInt("u_SpecularMap", 5);
     deferredShader.setInt("u_BRDFLUT", 6);
     deferredShader.setInt("u_SSAO", 7);
+}
+
+DeferredFramebuffer::~DeferredFramebuffer()
+{
+    glDeleteFramebuffers(1, &gBuffer);
+    glDeleteTextures(1, &gPosition);
+    glDeleteTextures(1, &gNormal);
+    glDeleteTextures(1, &gAlbedo);
+    glDeleteTextures(1, &gMaterial);
+    glDeleteRenderbuffers(1, &rboDepth);
 }
 
 void DeferredFramebuffer::Create(unsigned int WIDTH, unsigned int HEIGHT)
@@ -70,7 +80,7 @@ void DeferredFramebuffer::Create(unsigned int WIDTH, unsigned int HEIGHT)
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void DeferredFramebuffer::Draw()
+void DeferredFramebuffer::DrawLighting()
 {
 
 }
