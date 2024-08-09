@@ -27,12 +27,12 @@
 - [X] Subsurface Scattering (working-ish)
 
 # References
-https://learnopengl.com
-https://bruop.github.io/ibl/
-https://github.com/JoshuaSenouf/gl-engine
-https://thomasdeliot.wixsite.com/blog/single-post/2018/04/26/small-project-opengl-engine-and-pbr-deferred-pipeline-with-ssrssao
-https://google.github.io/filament/Filament.md.html#lighting/imagebasedlights/clearcoat
-https://colinbarrebrisebois.com/2011/03/07/gdc-2011-approximating-translucency-for-a-fast-cheap-and-convincing-subsurface-scattering-look/
-https://freepbr.com/about-free-pbr/
-https://www.texturecan.com/tag/Jade/
+- https://learnopengl.com
+- https://bruop.github.io/ibl/
+- https://github.com/JoshuaSenouf/gl-engine
+- https://thomasdeliot.wixsite.com/blog/single-post/2018/04/26/small-project-opengl-engine-and-pbr-deferred-pipeline-with-ssrssao
+- https://google.github.io/filament/Filament.md.html#lighting/imagebasedlights/clearcoat
+- https://colinbarrebrisebois.com/2011/03/07/gdc-2011-approximating-translucency-for-a-fast-cheap-and-convincing-subsurface-scattering-look/
+- https://freepbr.com/about-free-pbr/
+- https://www.texturecan.com/tag/Jade/
 
