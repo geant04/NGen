@@ -1,7 +1,10 @@
 # NGen
  OpenGL obj renderer, ~~soon to be using ImGUI and PBR~~
- 
-[![demo video](https://img.youtube.com/vi/feHYQM1u6No/0.jpg)](https://www.youtube.com/watch?v=feHYQM1u6No)
+ Click to watch a [demo video](https://www.youtube.com/watch?v=feHYQM1u6No)
+
+ <img width="642" alt="JadeMario" src="https://github.com/user-attachments/assets/b3264d6b-3196-4f4f-bfe4-aa476223be3f">
+
+SSAO blog post: https://www.geant.pro/blog/SSAOandSSS
 
 ## Task List (not in order)
 - [X] Simple obj loading
