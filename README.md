@@ -1,5 +1,7 @@
 # NGen
  OpenGL obj renderer, ~~soon to be using ImGUI and PBR~~
+ 
+[![demo video](https://img.youtube.com/vi/feHYQM1u6No/0.jpg)](https://www.youtube.com/watch?v=feHYQM1u6No)
 
 ## Task List (not in order)
 - [X] Simple obj loading
