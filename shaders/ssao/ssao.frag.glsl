@@ -31,12 +31,6 @@ vec2 hash21(float p)
     return fract((p3.xx + p3.yz) * p3.zy);
 }
 
-float blueNoise(float input, int frame)
-{
-    // to do: sample the blue noise texture
-    return fract(input + float(frame) * goldenRatioConjugate);
-}
-
 void main()
 {
     // 
