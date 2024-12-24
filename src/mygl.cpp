@@ -69,12 +69,15 @@ void processInput(GLFWwindow* window, Camera& camera, float deltaTime)
         glfwSetWindowShouldClose(window, true);
     }
 
-    float cameraSpeed = 5.0f * deltaTime;
+    float cameraSpeed = 5.0f;
+    float rotationSpeed = cameraSpeed * cameraSpeed;
+    cameraSpeed *= deltaTime;
+    rotationSpeed *= deltaTime;
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        camera.translateForward(cameraSpeed);
+        camera.zoom(cameraSpeed);
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        camera.translateForward(-cameraSpeed);
+        camera.zoom(-cameraSpeed);
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
         camera.translateRight(-cameraSpeed);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
@@ -84,13 +87,13 @@ void processInput(GLFWwindow* window, Camera& camera, float deltaTime)
     if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
         camera.translateUp(cameraSpeed);
     if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
-        camera.rotateRight(-cameraSpeed);
+        camera.rotatePhi(-rotationSpeed);
     if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
-        camera.rotateRight(cameraSpeed);
+        camera.rotatePhi(rotationSpeed);
     if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
-        camera.rotateUp(-cameraSpeed);
+        camera.rotateTheta(-rotationSpeed);
     if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
-        camera.rotateUp(cameraSpeed);
+        camera.rotateTheta(rotationSpeed);
 }
 
 void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
@@ -151,6 +154,7 @@ void MyGL::init()
         glfwTerminate();
         return;
     }
+
     glfwMakeContextCurrent(window);
     // register callback -- handle window resize
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
@@ -178,6 +182,7 @@ void MyGL::init()
     std::string modelPath = "models/" + modelName + ".obj";
     ourMesh.LoadObj(modelPath.c_str());
     ourMesh.create();
+    float yDisplacement = 0; //-0.4;
 
     MeshRenderer meshRenderer;
     meshRenderer.SetMesh(&ourMesh);
@@ -190,6 +195,7 @@ void MyGL::init()
     Mesh groundMesh;
     groundMesh.LoadObj("models/cube.obj");
     groundMesh.create();
+
     MeshRenderer groundRenderer;
     groundRenderer.SetMesh(&groundMesh);
     groundRenderer.LoadMaterials("textures/pbrCopper/Copper-scuffed_basecolor-boosted.png",
@@ -199,7 +205,6 @@ void MyGL::init()
     groundRenderer.LoadShader("shaders/deferred/gbuffer.vert.glsl", "shaders/deferred/gbuffer.frag.glsl");
     groundRenderer.translate(glm::vec3(0, -4.75, 0));
     groundRenderer.scale(glm::vec3(8, 0.75, 8));
-    
 
     Skybox envMap;
     envMap.loadHDR("textures/hdr/hangar_interior_4k.hdr");
@@ -277,15 +282,15 @@ void MyGL::init()
     testQuad.setInt("testTXT", 0);
 
     glm::vec3 testPositions[9] = {
-        glm::vec3( 0., 0., 0.),
-        glm::vec3(-1, 0., 0.),
-        glm::vec3( 1., 0., 0.),
-        glm::vec3(-1., 0., 1.),
-        glm::vec3( 0., 0., 1.),
-        glm::vec3( 1., 0., 1.),
-        glm::vec3(-1., 0., -1.),
-        glm::vec3( 0., 0., -1.),
-        glm::vec3( 1., 0., -1.)
+        glm::vec3( 0., yDisplacement, 0.),
+        glm::vec3(-1, yDisplacement, 0.),
+        glm::vec3( 1., yDisplacement, 0.),
+        glm::vec3(-1., yDisplacement, 1.),
+        glm::vec3( 0., yDisplacement, 1.),
+        glm::vec3( 1., yDisplacement, 1.),
+        glm::vec3(-1., yDisplacement, -1.),
+        glm::vec3( 0., yDisplacement, -1.),
+        glm::vec3( 1., yDisplacement, -1.)
     };
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -325,6 +330,7 @@ void MyGL::init()
         for ( unsigned int i = 0; i < 3; i++) {
             float spread = 4.5;
             glm::vec3 pos = testPositions[i] * spread;
+            //meshRenderer.scale(glm::vec3(0.20));
             meshRenderer.translate(pos);
             meshRenderer.Draw(&camera);
         }

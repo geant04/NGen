@@ -68,5 +68,6 @@
         "ratio": "cpp",
         "stop_token": "cpp",
         "thread": "cpp"
-    }
+    },
+    "cmake.sourceDirectory": "C:/Users/ge010/OneDrive/Documents/GitHub/EnGEn/NGen/include/glm"
 }

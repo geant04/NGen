@@ -14,7 +14,7 @@ Skybox::Skybox()
 {
     skyboxShader = Shader("shaders/skybox.vert.glsl", "shaders/skybox.frag.glsl");
     skyboxShader.setInt("skybox", 0);
-    skyboxShader.setInt("txt", 1);
+    //skyboxShader.setInt("txt", 1);
 
     buildCube();
 }
