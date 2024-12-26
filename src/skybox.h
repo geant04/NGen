@@ -19,7 +19,7 @@ public:
     void createBRDFLUT();
     void buildCube();
     void renderCube();
-    static void renderQuad();
+    void renderQuad();
     void initCaptures();
     unsigned int getCubemap() {
         return cubemap;
@@ -37,14 +37,13 @@ public:
         return brdfTexture;
     }
 private:
-    unsigned int VAO, VBO;
+    unsigned int VAO, VBO, quadVAO, quadVBO;
     unsigned int cubemap;
     unsigned int irradianceMap;
     unsigned int specularMap;
     unsigned int brdfTexture;
     unsigned int hdrTexture;
     unsigned int captureFBO, captureRBO;
-    static unsigned int quadVAO, quadVBO;
     bool isHDR;
     Shader skyboxShader;
     Shader equirectangularToCubemapShader;

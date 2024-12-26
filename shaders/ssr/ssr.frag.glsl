@@ -175,8 +175,8 @@ void main()
 
     vec4 proj = projection * startView;
     proj.xyz /= proj.w;
-    float dep = linearizeDepth(proj.z);
+    float dep = linearizeDepth(proj.z) / far;
 
     vec4 mainSceneColor = texture2D(gAlbedo, reflectedUV);
-    outColor = vec4(vec3(dep) + mainSceneColor.rgb * 0.000001, 1.0);
+    outColor = vec4(mainSceneColor.rgb, visibility);
 }

@@ -51,11 +51,6 @@ BlurFramebuffer::BlurFramebuffer(int kernelSize)
  : kernelRadius(kernelSize)
 {
     BlurShader = Shader("shaders/ssao/ssao.vert.glsl", "shaders/deferred/blur.frag.glsl");
-    BlurShader.use();
-    BlurShader.setInt("sampleTexture", 0);
-    BlurShader.setInt("kernel", 1);
-    BlurShader.setInt("kernelRadius", kernelRadius);
-
     GenerateKernel();
 }
 
@@ -109,7 +104,7 @@ void BlurFramebuffer::Create(unsigned int WIDTH, unsigned int HEIGHT, bool isHal
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void BlurFramebuffer::BlurPass(unsigned int targetFBO, unsigned int targetTextureID)
+void BlurFramebuffer::BlurPass(unsigned int targetFBO, unsigned int targetTextureID, Mesh &quad)
 {
     if (isHalf)
     {
@@ -125,9 +120,12 @@ void BlurFramebuffer::BlurPass(unsigned int targetFBO, unsigned int targetTextur
     glBindTexture(GL_TEXTURE_2D, gaussKernel.getTextureID());
     
     BlurShader.use();
+    BlurShader.setInt("sampleTexture", 0);
+    BlurShader.setInt("kernel", 1);
+    BlurShader.setInt("kernelRadius", kernelRadius);
     BlurShader.setBool("isAO", isAO);
     BlurShader.setInt("u_PingPong", 0);
-    Skybox::renderQuad();
+    quad.Draw();
 
     // PASS 2
     // rewrite to SSAO fbo
@@ -139,9 +137,12 @@ void BlurFramebuffer::BlurPass(unsigned int targetFBO, unsigned int targetTextur
     glBindTexture(GL_TEXTURE_2D, blurBuffer);
 
     BlurShader.use();
+    BlurShader.setInt("sampleTexture", 0);
+    BlurShader.setInt("kernel", 1);
+    BlurShader.setInt("kernelRadius", kernelRadius);
     BlurShader.setBool("isAO", isAO);
     BlurShader.setInt("u_PingPong", 1);
-    Skybox::renderQuad();
+    quad.Draw();
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 

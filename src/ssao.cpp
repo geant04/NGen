@@ -3,18 +3,12 @@
 SSAO::SSAO()
 {
     SSAOShader = Shader("shaders/ssao/ssao.vert.glsl", "shaders/ssao/ssao.frag.glsl");
-    SSAOShader.use();
-    SSAOShader.setInt("gPosition", 0);
-    SSAOShader.setInt("gNormal", 1);
 }
 
 SSAO::SSAO(float radius, float strength, int samples, unsigned int kernelSize)
     : SSAOradius(radius), SSAOstrength(strength), SSAOsamples(samples), kernelRadius(kernelSize)
 {
     SSAOShader = Shader("shaders/ssao/ssao.vert.glsl", "shaders/ssao/ssao.frag.glsl");
-    SSAOShader.use();
-    SSAOShader.setInt("gPosition", 0);
-    SSAOShader.setInt("gNormal", 1);
 }
 
 SSAO::~SSAO()
@@ -23,7 +17,7 @@ SSAO::~SSAO()
     glDeleteTextures(1, &SSAObuffer);
 }
 
-void SSAO::Create(unsigned int WIDTH, unsigned int HEIGHT, bool isHalf)
+void SSAO::Create(const unsigned int WIDTH, const unsigned int HEIGHT, const bool isHalf)
 {
     this->isHalf = isHalf;
     this->WIDTH = isHalf ? WIDTH / 2 : WIDTH;
@@ -51,7 +45,7 @@ void SSAO::Create(unsigned int WIDTH, unsigned int HEIGHT, bool isHalf)
     SSAOBlur.isAOEnabled(true);
 }
 
-void SSAO::SSAOPass(const unsigned int gPosition, const unsigned int gNormal, Camera &camera)
+void SSAO::SSAOPass(const unsigned int gPosition, const unsigned int gNormal, Camera &camera, Mesh &quad)
 {
     if (isHalf)
     {
@@ -69,20 +63,22 @@ void SSAO::SSAOPass(const unsigned int gPosition, const unsigned int gNormal, Ca
 
     // use SSAO shader
     SSAOShader.use();
+    SSAOShader.setInt("gPosition", 0);
+    SSAOShader.setInt("gNormal", 1);
     SSAOShader.setMat4("projection", camera.getProjectionMatrix());
     SSAOShader.setMat4("view", camera.getViewMatrix());
     SSAOShader.setInt("samples", SSAOsamples);
     SSAOShader.setFloat("radius", SSAOradius);
     SSAOShader.setFloat("aoStrength", SSAOstrength);
     SSAOShader.setFloat("sssStrength", sss_strength);
-    Skybox::renderQuad();
+    quad.Draw();
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    if (doBlur)
+    if (doBlur && false)
     {
         //SSAOBlur.AssignTarget(SSAObuffer);
-        SSAOBlur.BlurPass(SSAOfbo, SSAObuffer);
+        SSAOBlur.BlurPass(SSAOfbo, SSAObuffer, quad);
     }
 
     if (isHalf)

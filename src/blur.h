@@ -3,6 +3,7 @@
 #include "shader.h"
 #include "skybox.h"
 #include "texture.h"
+#include "mesh.h"
 
 class BlurFramebuffer
 {
@@ -12,7 +13,7 @@ public:
     ~BlurFramebuffer();
 
     void Create(unsigned int WIDTH, unsigned int HEIGHT, bool isHalf);
-    void BlurPass(unsigned int targetFBO, unsigned int targetTexture);
+    void BlurPass(unsigned int targetFBO, unsigned int targetTexture, Mesh &quad);
     void AssignTarget(unsigned int target);
     void CreateShader(const char* vertexPath, const char* fragmentPath);
     void isAOEnabled(bool isAO) { this->isAO = isAO; }

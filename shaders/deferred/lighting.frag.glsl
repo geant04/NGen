@@ -17,12 +17,9 @@ uniform samplerCube u_IrradianceMap;
 uniform samplerCube u_SpecularMap;
 uniform sampler2D u_BRDFLUT;
 uniform sampler2D u_SSAO;
-uniform sampler2D u_SSR;
 
 uniform bool u_DebugSSAO;
 uniform bool u_EnableSSAO;
-uniform bool u_EnableSSR;
-uniform bool u_DebugSSR;
 
 uniform float aoVal;
 
@@ -202,15 +199,6 @@ void main()
 
     vec3 diffuse_li = texture(u_IrradianceMap, normal).rgb;
     vec3 diffuse_lo = diffuse_li * kD * albedo;
-
-    vec4 diffuse_ssr = texture(u_SSR, fs_UV);
-    diffuse_lo = mix(diffuse_lo, diffuse_ssr.rgb, diffuse_ssr.a * (u_EnableSSR ? 1 : 0));
-
-    if (u_DebugSSR)
-    {
-        out_Col = vec4(diffuse_ssr.rgb, 1.0);
-        return;
-    }
 
     const float MAX_REFLECTION_LOD = 4.0;
     vec3 specular_li = textureLod(u_SpecularMap, wi, roughness * MAX_REFLECTION_LOD).rgb;
