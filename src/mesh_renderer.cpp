@@ -10,8 +10,13 @@ MeshRenderer::MeshRenderer()
 MeshRenderer::~MeshRenderer()
 {}
 
-void MeshRenderer::Draw(Camera *camera)
-{  
+void MeshRenderer::Draw(
+    Camera *camera, 
+    unsigned int albedoID,
+    unsigned int metallticID,
+    unsigned int normalID,
+    unsigned int roughnessID)
+{
     shader.use();
     // TO DO: store the model matrix in the mesh
     glm::mat4 model = glm::mat4(1.0);
@@ -36,31 +41,40 @@ void MeshRenderer::Draw(Camera *camera)
     shader.setBool("useNormalMap", useNormalMap);
 
     // these maps are necessary for loading in proper PBR material data
-    if (albedoMap.getTextureID() != -1) {
+    if (albedoID != -1) {
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, albedoMap.getTextureID());
+        glBindTexture(GL_TEXTURE_2D, albedoID);
         shader.setInt("albedoMap", 0);
     }
 
-    if (metallicMap.getTextureID() != -1) {
+    if (metallticID != -1) {
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, metallicMap.getTextureID());
+        glBindTexture(GL_TEXTURE_2D, metallticID);
         shader.setInt("metallicMap", 1);
     }
 
-    if (normalMap.getTextureID() != -1) {
+    if (normalID != -1) {
         glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, normalMap.getTextureID());
+        glBindTexture(GL_TEXTURE_2D, normalID);
         shader.setInt("normalMap", 2);
     }
 
-    if (roughnessMap.getTextureID() != -1)  {
+    if (roughnessID != -1)  {
         glActiveTexture(GL_TEXTURE3);
-        glBindTexture(GL_TEXTURE_2D, roughnessMap.getTextureID());
+        glBindTexture(GL_TEXTURE_2D, roughnessID);
         shader.setInt("roughnessMap", 3);
     }
 
     mesh->Draw();
+}
+
+void MeshRenderer::Draw(Camera *camera)
+{  
+    Draw(camera, 
+        albedoMap.getTextureID(),
+        metallicMap.getTextureID(),
+        normalMap.getTextureID(),
+        roughnessMap.getTextureID());
 }
 
 void MeshRenderer::LoadMaterials(const char* albedoPath,

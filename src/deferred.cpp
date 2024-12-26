@@ -13,6 +13,7 @@ DeferredFramebuffer::DeferredFramebuffer()
     deferredShader.setInt("u_SpecularMap", 5);
     deferredShader.setInt("u_BRDFLUT", 6);
     deferredShader.setInt("u_SSAO", 7);
+    deferredShader.setInt("u_SSR", 8);
 }
 
 DeferredFramebuffer::~DeferredFramebuffer()

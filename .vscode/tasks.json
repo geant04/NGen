@@ -8,6 +8,7 @@
                 "-g",
                 "-std=c++17",
                 "-I${workspaceFolder}/include",
+                "-I${workspaceFolder}/src",
                 "-L${workspaceFolder}/lib",
                 "${workspaceFolder}/include/imgui/*.cpp",
                 "${workspaceFolder}/src/*.cpp",

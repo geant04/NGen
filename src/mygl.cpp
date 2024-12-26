@@ -5,6 +5,9 @@
 #include "shader.h"
 #include "mesh.h"
 #include "skybox.h"
+#include "geometry/quad.h"
+#include "geometry/cube.h"
+#include "features/ssr.h"
 #include "texture.h"
 #include "mesh_renderer.h"
 
@@ -192,11 +195,11 @@ void MyGL::init()
                                "textures/pbrGold/gold-scuffed_roughness.png");
     meshRenderer.LoadShader("shaders/deferred/gbuffer.vert.glsl", "shaders/deferred/gbuffer.frag.glsl");
 
-    Mesh groundMesh;
-    groundMesh.LoadObj("models/cube.obj");
+    Cube groundMesh;
     groundMesh.create();
 
     MeshRenderer groundRenderer;
+    Texture2D funWall = Texture2D("textures/funTextures/crab_rig.png");
     groundRenderer.SetMesh(&groundMesh);
     groundRenderer.LoadMaterials("textures/pbrCopper/Copper-scuffed_basecolor-boosted.png",
                                "textures/pbrCopper/Copper-scuffed_normal.png",
@@ -211,6 +214,9 @@ void MyGL::init()
     envMap.createIrradianceMap();
     envMap.createSpecularMap();
     envMap.createBRDFLUT();
+
+    Quad quad;
+    quad.create();
 
     // Viewport resizing necessary after a bunch of the crap i did
     // --------------------------
@@ -245,11 +251,13 @@ void MyGL::init()
     bool showModel = true;
     bool showEnv = true;
     
-    bool enableSSAO = true;
-    bool showSSAODebug = true;
+    bool showSSAODebug = false;
     float SSAOradius = 0.314;
     float SSAOstrength = 1.4;
     int SSAOsamples = 40;
+
+    bool enableSSR = true;
+    bool showSSRDebug = true;
 
     glm::vec3 SSSColor = glm::vec3(1.f, 1.0f, 1.0f);
     float sssColor[3] = {SSSColor.r, SSSColor.g, SSSColor.b};
@@ -262,8 +270,6 @@ void MyGL::init()
     // render loop
     // --------------------------
 
-    // TO DO: ABSTRACT SSAO, DEFERRED RENDERING, AND GAUSSIAN BLUR
-
     // Deferred rendering setup
     DeferredFramebuffer deferred;
     deferred.Create(WIDTH, HEIGHT);
@@ -275,11 +281,8 @@ void MyGL::init()
     ssao.Create(WIDTH, HEIGHT, true);
     ssao.AssignParams(SSAOsamples, SSAOradius, SSAOstrength, sss_strength);
 
-    // for testing purposes
-    Shader testQuad;
-    testQuad = Shader("shaders/ssao/ssao.vert.glsl", "shaders/ssao/testSAO.glsl");
-    testQuad.use();
-    testQuad.setInt("testTXT", 0);
+    // SSR setup
+    SSR ssr = SSR(WIDTH, HEIGHT);
 
     glm::vec3 testPositions[9] = {
         glm::vec3( 0., yDisplacement, 0.),
@@ -327,14 +330,29 @@ void MyGL::init()
         meshRenderer.setParams(u_Albedo, u_Metallic, u_Roughness);
         meshRenderer.setMapToggles(useAlbedoMap, useRoughnessMap, useMetallicMap, useNormalMap);
 
-        for ( unsigned int i = 0; i < 3; i++) {
+        for (unsigned int i = 0; i < 3; i++) {
             float spread = 4.5;
             glm::vec3 pos = testPositions[i] * spread;
             //meshRenderer.scale(glm::vec3(0.20));
             meshRenderer.translate(pos);
             meshRenderer.Draw(&camera);
         }
-        groundRenderer.Draw(&camera);
+
+        // render ground and wall...
+        groundRenderer.setMapToggles(true, true, true, true);
+        groundRenderer.translate(glm::vec3(0, -4.75, 0));
+        groundRenderer.scale(glm::vec3(8, 0.75, 8));
+        groundRenderer.Draw(&camera); // ground
+
+        groundRenderer.translate(glm::vec3(0, 4, -7));
+        groundRenderer.scale(glm::vec3(8.0, 8.0, 0.75));
+        groundRenderer.Draw(
+            &camera,
+            funWall.getTextureID(),
+            groundRenderer.getMetallicID(),
+            groundRenderer.getNormalID(),
+            groundRenderer.getRoughnessID()
+        ); // wall
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -344,6 +362,18 @@ void MyGL::init()
             // SSAO pass
             ssao.AssignParams(SSAOsamples, SSAOradius, SSAOstrength, sss_strength);
             ssao.SSAOPass(deferred.GetGPosition(), deferred.GetGNormal(), camera);
+        }
+
+        // temporary SSR pass placement
+        if (enableSSR)
+        {
+            // linker not set up properly, to do: move ssr.h implementation contents to ssr.cpp
+            ssr.SSRPass(
+                deferred.GetGPosition(), 
+                deferred.GetGNormal(), 
+                deferred.GetGAlbedo(),
+                camera, 
+                quad);
         }
 
         // use deferred lighting shader
@@ -362,6 +392,8 @@ void MyGL::init()
         deferredShader.setVec3("u_CamPos", camera.eye);
         deferredShader.setBool("u_EnableSSAO", showSSAO);
         deferredShader.setBool("u_DebugSSAO", showSSAODebug);
+        deferredShader.setBool("u_EnableSSR", enableSSR);
+        deferredShader.setBool("u_DebugSSR", showSSRDebug);
         deferredShader.setFloat("aoVal", u_AmbientOcclusion);
         deferredShader.setVec3("u_SSSColor", SSSColor);
         deferredShader.setFloat("u_Distortion", sss_distortion);
@@ -386,17 +418,14 @@ void MyGL::init()
         glBindTexture(GL_TEXTURE_2D, envMap.getBRDFLUT());
         glActiveTexture(GL_TEXTURE7);
         glBindTexture(GL_TEXTURE_2D, ssao.GetSSAOBuffer());
+        glActiveTexture(GL_TEXTURE8);
+        glBindTexture(GL_TEXTURE_2D, ssr.GetFBO()->getBufferID());
 
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        Skybox::renderQuad();
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        quad.Draw();
         glDisable(GL_BLEND);
-
-        // some combination final pass to combine SSAO and our deferred render
-        //testQuad.use();
-        //glActiveTexture(GL_TEXTURE0);
-        //glBindTexture(GL_TEXTURE_2D, SSAObuffer);
-        //envMap.renderQuad();
 
         ImGui::Begin("Settings");
         ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
@@ -438,7 +467,7 @@ void MyGL::init()
 
         if (ImGui::CollapsingHeader("SSAO Settings"))
         {
-            ImGui::Checkbox("Enable SSAO", &showSSAO);
+            ImGui::Checkbox("Show SSAO", &showSSAO);
             ImGui::SliderInt("Samples", &SSAOsamples, 0, 100);
             ImGui::SliderFloat("Radius", &SSAOradius, 0.0f, 1.0f);
             ImGui::SliderFloat("Strength", &SSAOstrength, 0.0f, 2.5f);
@@ -453,6 +482,11 @@ void MyGL::init()
             ImGui::SliderFloat("Ambient", &sss_ambient, 0.0f, 2.0f);
             ImGui::SliderFloat("Glow", &sss_glow, 0.0f, 2.0f);
             ImGui::SliderFloat("Inv. Strength", &sss_strength, 0.0f, 1.0f);
+        }
+
+        if (ImGui::CollapsingHeader("SSR Settings"))
+        {
+            ImGui::Checkbox("Enable SSR", &enableSSR);
         }
 
         ImGui::End();

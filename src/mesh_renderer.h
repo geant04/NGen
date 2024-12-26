@@ -10,10 +10,12 @@ class MeshRenderer
 private:
     Shader shader;
     Mesh *mesh;
+
     Texture2D albedoMap;
     Texture2D normalMap;
     Texture2D metallicMap;
     Texture2D roughnessMap;
+
     glm::vec3 albedo;
     float metallic;
     float roughness;
@@ -32,7 +34,15 @@ private:
 public:
     MeshRenderer();
     ~MeshRenderer();
+    
     void Draw(Camera* camera);
+    void Draw(
+        Camera *camera, 
+        unsigned int albedoID,
+        unsigned int metallticID,
+        unsigned int normalID,
+        unsigned int roughnessID);
+
     void LoadShader(const char* vertPath, const char* fragPath);
     void SetMesh(Mesh *m);
     void LoadMaterials(
@@ -46,17 +56,17 @@ public:
     void LoadRoughMap(const char* albedoPath);
     void setParams(glm::vec3 albedo, float metallic, float roughness);
     void setMapToggles(bool useAlbedo, bool useRoughness, bool useMetallic, bool useNormal);
-    void translate(glm::vec3 direction)
-    {
-        this->translation = direction;
-    };
-    void scale(glm::vec3 scaleAmt)
-    {
-        this->scaleAmt = scaleAmt;
-    }
+
+    void translate(glm::vec3 direction) { this->translation = direction; };
+    void scale(glm::vec3 scaleAmt) { this->scaleAmt = scaleAmt; };
     void rotate(float angle, glm::vec3 axis)
     {
         this->rotationAxis = axis;
         this->rotateTheta = angle;
     }
+
+    unsigned int getAlbedoID() const { return albedoMap.getTextureID(); };
+    unsigned int getMetallicID() const { return metallicMap.getTextureID(); };
+    unsigned int getNormalID() const { return normalMap.getTextureID(); };
+    unsigned int getRoughnessID() const { return roughnessMap.getTextureID(); };    
 };

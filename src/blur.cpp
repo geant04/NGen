@@ -79,6 +79,7 @@ void BlurFramebuffer::GenerateKernel()
     gaussKernel.bufferPixelData(kernel.size(), 1, kernel.data(), 1);
 }
 
+// To do: make blurFramebuffer of type FrameBuffer
 void BlurFramebuffer::Create(unsigned int WIDTH, unsigned int HEIGHT, bool isHalf)
 {
     this->isHalf = isHalf;

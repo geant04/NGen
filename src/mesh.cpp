@@ -113,7 +113,6 @@ void Mesh::LoadObj(const char* path)
             tinyobj::index_t index = mesh.indices[j];
             Vertex vertex;
 
-
             vertex.Position = glm::vec3(
                 attrib.vertices[index.vertex_index * 3 + 0],
                 attrib.vertices[index.vertex_index * 3 + 1],
@@ -173,6 +172,7 @@ void Mesh::bindBrdfLUT(unsigned int brdfLUTID)
 void Mesh::Draw()
 {
     glBindVertexArray(VAO);
+
     if (hasCubeMap) {
         std::cout << "cubemap detected, bind" << std::endl;
         glActiveTexture(GL_TEXTURE0);

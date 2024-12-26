@@ -96,7 +96,6 @@ void Shader::setBool(const std::string &name, bool value) const
     glUniform1i(glGetUniformLocation(ID, name.c_str()), (int)value);
 }
 
-
 void Shader::setInt(const std::string &name, int value) const
 {
     GLint uniformLocation = glGetUniformLocation(ID, name.c_str());

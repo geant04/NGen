@@ -28,9 +28,9 @@ public:
         return height;
     }
 
-    float fov = 45.0f;
-    float near = 0.1f;
-    float far = 100.0f;
+    float fov;;
+    float near;
+    float far;
     
     glm::vec3 eye, // camera position
               ref, // target
@@ -41,9 +41,9 @@ public:
               V,
               H; 
 
-    glm::mat4 getViewProjectionMatrix();
-    glm::mat4 getProjectionMatrix();
-    glm::mat4 getViewMatrix();
+    glm::mat4 getViewProjectionMatrix() const;
+    glm::mat4 getProjectionMatrix() const;
+    glm::mat4 getViewMatrix() const;
 
     void zoom(float amt) {
         eye += look * amt;
