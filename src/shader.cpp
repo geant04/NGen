@@ -1,12 +1,12 @@
 #include "shader.h"
 #include <iostream>
 
-Shader::Shader()
-{
-    ID = 0;
-}
+Shader::Shader() 
+    : flag(false), ID(0)
+{}
 
-Shader::Shader(const char* vertexPath, const char* fragmentPath)
+Shader::Shader(const char* vertexPath, const char* fragmentPath) 
+    : flag(false), ID(0)
 {
     // 1. retrieve the vertex/fragment source code from filePath
     std::string vertexCode;
@@ -99,9 +99,11 @@ void Shader::setBool(const std::string &name, bool value) const
 void Shader::setInt(const std::string &name, int value) const
 {
     GLint uniformLocation = glGetUniformLocation(ID, name.c_str());
-    if (uniformLocation == -1) {
+    if (uniformLocation == -1 && !flag) {
         std::cerr << "Uniform '" << name << "' not found in shader program" << std::endl;
+        flag = true;
         // Handle the error, such as returning early or throwing an exception
+        return;
     }
     glUniform1i(uniformLocation, value);
 }

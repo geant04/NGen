@@ -13,6 +13,8 @@
 
 class Shader
 {
+private:
+    mutable bool flag;
 public:
     // the program ID
     unsigned int ID;

@@ -3,6 +3,7 @@
 uniform sampler2D gPosition;
 uniform sampler2D gNormal;
 uniform sampler2D gAlbedo;
+uniform sampler2D gMaterial;
 
 uniform mat4 projection;
 uniform mat4 view;
@@ -12,141 +13,120 @@ out vec4 outColor;
 in vec2 fs_UV;
 
 const float resolution = 0.5;
-const float maxDistance = 10.0;
-const int steps = 10;
-const float thickness = 0.0015;
+const int steps = 30;
+const float stride = 1.0;
 
-const float near = 0.1;
+uniform float maxDistance;
+uniform float thickness;
+
+const float near = 1.0;
 const float far = 1000.0;
 
 vec3 viewToFrag(vec4 view)
 {
     vec4 frag = projection * view;
-    frag.xyz /= frag.w; // perspective divide... purposefully incorrect without dividing z for now
+    frag /= frag.w; // perspective divide... purposefully incorrect without dividing z for now
     frag.xy = frag.xy * 0.5 + 0.5; // [-1, 1] to [0, 1]
 
-    vec2 texSize = textureSize(gPosition, 0).xy;
-    frag.xy = frag.xy * texSize;
     return frag.xyz;
 }
 
-// z is [-1, 1], not [0, 1]
-float linearizeDepth(float z)
+float linearizeDepth(float depth)
 {
-    return (2.0 * near * far) / (far + near - z * (far - near));
+    float z = depth * 2.0 - 1.0;
+    return (2.0 * near * far) / (far + near - z * (far - near)); // divide maybe not necessary for precision
 }
 
-// return UV, 0,1 for binaryHit, depth
-vec4 raymarch(vec4 startView, vec4 endView)
-{
-    // convert startView and endView to screenspace [-1, 1] coordinates via projection matrix multiplication
-    // march along screenspace, interpolating between marched depth vs detected depth (use converted depth spaces to compare)
-    vec2 texSize = textureSize(gPosition, 0).xy;
+bool screenSpaceRayMarch(
+    vec4 startView, 
+    vec4 endView,
+    out vec2 hit,
+    out float outDepth)
+{   
+    // homogenous clip space projection
+    vec4 hClipStart = projection * startView;
+    vec4 hClipEnd = projection * endView;
 
-    vec3 startFrag = viewToFrag(startView);
-    vec3 endFrag = viewToFrag(endView);
+    float k0 = 1.0 / hClipStart.w;
+    float k1 = 1.0 / hClipEnd.w;
 
-    startFrag.z = linearizeDepth(startFrag.z);
-    endFrag.z = linearizeDepth(startFrag.z);
+    // camera space coordinates, but interpolated homogeneous
+    vec3 q0 = hClipStart.xyz; 
+    vec3 q1 = hClipEnd.xyz;
+    
+    // NDC screenspace coordinates [-1, 1] range I think... idk tbh
+    vec2 p0 = hClipStart.xy * k0 * 0.5 + 0.5;
+    vec2 p1 = hClipEnd.xy * k1 * 0.5 + 0.5;
 
-    float dx = endFrag.x - startFrag.x;
-    float dy = endFrag.y - startFrag.y;
+    // do an unoptimized approach for now
+    int stepCount = 64;
+    int binSearch = 0;
+    float increment = 1.0 / float(stepCount);
+    float w = 0;
+    float prevW = 0;
 
-    float useX = abs(dx) >= abs(dy) ? 1 : 0;
-    float delta = mix(abs(dy), abs(dx), useX) * clamp(resolution, 0, 1); // chooses btwn dy or dx
-    vec2 increment = vec2(dx, dy) / max(delta, 0.001);
-
-    vec2 frag = startFrag.xy;
-
-    int hit0 = 0;
-    int hit1 = 0;
-    float t = 0;
-    float prev = 0;
-    float depth = 0;
-
-    //raw search first 
-    for (int i = 0; i < int(delta); i++)
+    for (int i = 0; i < stepCount; i++)
     {
-        if (frag.x > texSize.x || frag.y > texSize.y || frag.x < 0 || frag.y < 0) break;
-        frag += increment;
+        w += increment;
 
-        vec4 sampledDepth = texture2D(gPosition, frag / texSize);
-        sampledDepth = projection * view * vec4(sampledDepth.xyz, 1.0);
-        sampledDepth.xyz /= sampledDepth.w;
-        sampledDepth.z = linearizeDepth(sampledDepth.z);
+        float k = mix(k0, k1, w);
+        vec3 q = mix(q0, q1, w);
+        vec2 p = mix(p0, p1, w);
 
-        // gather marched depth
-        t = length(frag - startFrag.xy) / length(endFrag.xy - startFrag.xy);
-        depth = mix(startFrag.z, endFrag.z, t);
-        depth = depth - sampledDepth.z;
+        if (p.x > 1 || p.y > 1 || p.x < 0 || p.y < 0) return false;
 
-        if (depth > 0 && depth < thickness && sampledDepth.a > 0)
+        float rayDepth = linearizeDepth(q.z * k);
+        float sampleDepth = texture2D(gMaterial, p).z;
+        sampleDepth = linearizeDepth(sampleDepth);
+
+        float diff = rayDepth - sampleDepth;
+        if (diff > 0 && diff < thickness)
         {
-            hit0 = 1;
-            break;
+            hit = p;
+            outDepth = rayDepth;
+            binSearch = 1;
         }
         else
         {
-            prev = t;
-        }
-    }    
-
-    t = prev + (t - prev) / 2.0; // t = half of previous t, perform a binary search
-
-    for (int i = 0; i < steps * hit0; i++)
-    {
-        if (frag.x > texSize.x || frag.y > texSize.y || frag.x < 0 || frag.y < 0) break;
-        frag = mix(startFrag.xy, endFrag.xy, t);
-
-        vec4 sampledDepth = texture2D(gPosition, frag / texSize);
-        sampledDepth = projection * view * vec4(sampledDepth.xyz, 1.0);
-        sampledDepth.xyz /= sampledDepth.w;
-        sampledDepth.z = linearizeDepth(sampledDepth.z);
-
-        //depth = (startFrag.z * endFrag.z) / mix(endFrag.z, startFrag.z, t); // perspective-correct interpolation
-        depth = mix(startFrag.z, endFrag.z, t);
-        depth = depth - sampledDepth.z;
-
-        if (depth > 0 && depth < thickness && sampledDepth.a > 0)
-        {
-            hit1 = 1;
-            t = prev + (t - prev) / 2.0; // left half
-        }
-        else
-        {
-            float tempT = t;
-            t = t + (t - prev) / 2.0;
-            prev = tempT;
+            prevW = w;
         }
     }
 
-    frag.xy /= texSize;
-    frag.x = clamp(frag.x, 0, 1);
-    frag.y = clamp(frag.y, 0, 1);
+    w = prevW + (w - prevW) / 2.0;
+    int iterations = 10 * binSearch;
+    
+    for (int i = 0; i < iterations; i++)
+    {
+        float k = mix(k0, k1, w);
+        vec3 q = mix(q0, q1, w);
+        vec2 p = mix(p0, p1, w);
 
-    return vec4(frag.xy, hit1, depth);
+        if (p.x > 1 || p.y > 1 || p.x < 0 || p.y < 0) return false;
+
+        float rayDepth = linearizeDepth(q.z * k);
+        float sampleDepth = texture2D(gMaterial, p).z;
+        sampleDepth = linearizeDepth(sampleDepth);
+
+        float diff = rayDepth - sampleDepth;
+
+        if (diff > 0 && diff < thickness)
+        {
+            hit = p;
+            outDepth = rayDepth;
+            w = prevW + (w - prevW) / 2.0;
+        }
+        else
+        {
+            float temp = w;
+            w = w + (w - prevW) / 2.0;
+            prevW = w;
+        }
+    }
+
+    return false || (binSearch == 1);
 }
 
-float getVisibility(vec2 uv, float hit1, float depth, float lambert)
-{
-    vec3 worldFragPos = texture(gPosition, uv).xyz;
-    vec3 worldPos = texture(gPosition, fs_UV).xyz;
 
-    float visibility = hit1
-            // * texture(u_TexMetalRoughMask, uv).b
-            * (1 - lambert)
-            * (1 - clamp(depth / thickness, 0, 1))
-            * (1 - clamp(distance(worldFragPos, worldPos) / maxDistance, 0, 1))
-            * (1 - smoothstep(0.95, 1.0, uv.y))
-            * smoothstep(0, 0.05, uv.y)
-            * smoothstep(0, 0.05, uv.x)
-            * (1 - smoothstep(0.95, 1.0, uv.x))
-            ;
-
-    visibility = clamp(visibility, 0, 1);
-
-    return visibility;
-}
 
 void main()
 {
@@ -155,10 +135,10 @@ void main()
 
     // need to perform SSR; return UV coordinate of reflected hit
     vec3 viewDir = normalize(worldPos - cameraPos);
-    vec3 reflectDir = normalize(reflect(worldNor, viewDir)); // simplify life by just doing this in world space first
+    vec3 reflectDir = normalize(reflect(viewDir, worldNor)); // simplify life by just doing this in world space first
     
     // offset by an epsilon
-    vec4 startView = vec4(worldPos.xyz + (worldNor * 0.05), 1.0);
+    vec4 startView = vec4(worldPos.xyz, 1.0);
     vec4 endView = vec4(worldPos.xyz + reflectDir * maxDistance, 1.0);
 
     startView = view * startView;
@@ -166,17 +146,14 @@ void main()
 
     // perform raymarch from startView to endView for atmost n steps
     // if we encounter a hit, return the UV
-    vec4 marchResults = raymarch(startView, endView);
-    vec2 reflectedUV = marchResults.xy;
+    //vec4 mainSceneColor = texture2D(gAlbedo, vec2(0.));
+    float depth = texture2D(gMaterial, fs_UV.xy).z;
+    vec2 hitUV;
+    float outDepth;
+    bool hit = screenSpaceRayMarch(startView, endView, hitUV, outDepth);
 
-    // visibility check
-    float lambert = max(dot(viewDir, reflectDir), 0);
-    float visibility = getVisibility(reflectedUV, marchResults.z, marchResults.w, lambert);
+    // binarySearch refinement if hit
+    vec3 color = (hit ? 1 : 0) * texture2D(gAlbedo, hitUV).rgb;
 
-    vec4 proj = projection * startView;
-    proj.xyz /= proj.w;
-    float dep = linearizeDepth(proj.z) / far;
-
-    vec4 mainSceneColor = texture2D(gAlbedo, reflectedUV);
-    outColor = vec4(mainSceneColor.rgb, visibility);
+    outColor = vec4(color, 1.0);
 }

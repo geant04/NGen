@@ -14,7 +14,7 @@ Camera::Camera(unsigned int width, unsigned int height)
 }
 
 Camera::Camera(unsigned int width, unsigned int height, glm::vec3 eye, glm::vec3 ref, glm::vec3 up) 
- : width(width), height(height), eye(eye), ref(ref), up(up), near(0.1f), far(1000.0f), fov(45.0)
+ : width(width), height(height), eye(eye), ref(ref), up(up), near(1.0f), far(1000.0f), fov(45.0)
 {
     std::cout << "Camera created" << std::endl;
     std::cout << "far: "  << far << std::endl;

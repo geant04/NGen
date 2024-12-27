@@ -254,13 +254,12 @@ void MyGL::init()
     bool useNormalMap = false;
     bool useMetallicMap = false;
     bool useRoughnessMap = false;
-
     bool showModel = true;
     bool showEnv = true;
-    
     bool showSSAODebug = false;
-    bool enableSSR = false;
+    bool enableSSR = true;
     bool showSSRDebug = false;
+    bool enableComposite = true;
 
     glm::vec3 SSSColor = glm::vec3(1.f, 1.0f, 1.0f);
     float sssColor[3] = {SSSColor.r, SSSColor.g, SSSColor.b};
@@ -336,7 +335,7 @@ void MyGL::init()
         meshRenderer.setParams(u_Albedo, u_Metallic, u_Roughness);
         meshRenderer.setMapToggles(useAlbedoMap, useRoughnessMap, useMetallicMap, useNormalMap);
 
-        for (unsigned int i = 0; i < 3; i++) {
+        for (unsigned int i = 0; i < 1; i++) {
             float spread = 4.5;
             glm::vec3 pos = testPositions[i] * spread;
             //meshRenderer.scale(glm::vec3(0.20));
@@ -370,63 +369,68 @@ void MyGL::init()
         }
 
         // temporary SSR pass placement
-        if (enableSSR && false)
+        if (enableSSR)
         {
             // linker not set up properly, to do: move ssr.h implementation contents to ssr.cpp
             ssr.SSRPass(
                 deferred.GetGPosition(), 
                 deferred.GetGNormal(), 
                 deferred.GetGAlbedo(),
+                deferred.GetGMaterial(),
                 camera,
                 quad);
         }
 
-        // use deferred lighting shader
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
         // draw skybox
-        if (showEnv)
+        if (showEnv && false)
         {
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             glDepthMask(GL_FALSE);
             envMap.draw(&camera);
             glDepthMask(GL_TRUE);
         }
-
-        Shader* deferredShader = deferred.GetShaderPointer();
-        deferredShader->use();
-        deferredShader->setVec3("u_CamPos", camera.eye);
-        deferredShader->setBool("u_EnableSSAO", showSSAO);
-        deferredShader->setBool("u_DebugSSAO", showSSAODebug);
-        deferredShader->setFloat("aoVal", u_AmbientOcclusion);
-        deferredShader->setVec3("u_SSSColor", SSSColor);
-        deferredShader->setFloat("u_Distortion", sss_distortion);
-        deferredShader->setFloat("u_Scale", sss_scale);
-        deferredShader->setFloat("u_Ambient", sss_ambient);
-        deferredShader->setFloat("u_Glow", sss_glow);
-
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, deferred.GetGPosition());
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, deferred.GetGNormal());
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, deferred.GetGAlbedo());
-        glActiveTexture(GL_TEXTURE3);
-        glBindTexture(GL_TEXTURE_2D, deferred.GetGMaterial());
         
-        glActiveTexture(GL_TEXTURE4);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, envMap.getIrradianceMap());
-        glActiveTexture(GL_TEXTURE5);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, envMap.getSpecularMap());
-        glActiveTexture(GL_TEXTURE6);
-        glBindTexture(GL_TEXTURE_2D, envMap.getBRDFLUT());
-        glActiveTexture(GL_TEXTURE7);
-        glBindTexture(GL_TEXTURE_2D, ssao.GetSSAOBuffer());
+        // use deferred lighting shader
+        if (enableComposite && false)
+        {
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        quad.Draw();
-        glDisable(GL_BLEND);
+            Shader* deferredShader = deferred.GetShaderPointer();
+            deferredShader->use();
+            deferredShader->setVec3("u_CamPos", camera.eye);
+            deferredShader->setVec3("u_SSSColor", SSSColor);
+            deferredShader->setBool("u_EnableSSAO", showSSAO);
+            deferredShader->setBool("u_DebugSSAO", showSSAODebug);
+            deferredShader->setFloat("aoVal", u_AmbientOcclusion);
+            deferredShader->setFloat("u_Distortion", sss_distortion);
+            deferredShader->setFloat("u_Scale", sss_scale);
+            deferredShader->setFloat("u_Ambient", sss_ambient);
+            deferredShader->setFloat("u_Glow", sss_glow);
+
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, deferred.GetGPosition());
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, deferred.GetGNormal());
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, deferred.GetGAlbedo());
+            glActiveTexture(GL_TEXTURE3);
+            glBindTexture(GL_TEXTURE_2D, deferred.GetGMaterial());
+            
+            glActiveTexture(GL_TEXTURE4);
+            glBindTexture(GL_TEXTURE_CUBE_MAP, envMap.getIrradianceMap());
+            glActiveTexture(GL_TEXTURE5);
+            glBindTexture(GL_TEXTURE_CUBE_MAP, envMap.getSpecularMap());
+            glActiveTexture(GL_TEXTURE6);
+            glBindTexture(GL_TEXTURE_2D, envMap.getBRDFLUT());
+            glActiveTexture(GL_TEXTURE7);
+            glBindTexture(GL_TEXTURE_2D, ssao.GetSSAOBuffer());
+
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            quad.Draw();
+            glDisable(GL_BLEND);
+        }
 
         ImGui::Begin("Settings");
         ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
@@ -488,6 +492,8 @@ void MyGL::init()
         if (ImGui::CollapsingHeader("SSR Settings"))
         {
             ImGui::Checkbox("Enable SSR", &enableSSR);
+            ImGui::SliderFloat("Thickness", &ssr.thickness, 0.0f, 1.0f);
+            ImGui::SliderFloat("Max Distance", &ssr.maxDistance, 0.0f, 20.0f);
         }
 
         ImGui::End();
