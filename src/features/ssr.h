@@ -67,6 +67,8 @@ void SSR::SSRPass(
     SSRShader.setInt("gMaterial", 3);
     SSRShader.setFloat("maxDistance", maxDistance);
     SSRShader.setFloat("thickness", thickness);
+    SSRShader.setFloat("near", camera.near);
+    SSRShader.setFloat("far", camera.far);
     
     // render, ideally should be a quad that's passed in
     mesh.Draw();

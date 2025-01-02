@@ -10,9 +10,6 @@ public:
     ~MyGL();
 
     void init();
-
-private:
-    /* data */
 };
 
 #endif

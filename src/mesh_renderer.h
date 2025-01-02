@@ -7,29 +7,6 @@
 
 class MeshRenderer
 {
-private:
-    Shader shader;
-    Mesh *mesh;
-
-    Texture2D albedoMap;
-    Texture2D normalMap;
-    Texture2D metallicMap;
-    Texture2D roughnessMap;
-
-    glm::vec3 albedo;
-    float metallic;
-    float roughness;
-    glm::mat4 model;
-    glm::vec3 translation;
-    glm::vec3 scaleAmt;
-    glm::vec3 rotationAxis;
-    float rotateTheta;
-
-    bool useAlbedoMap;
-    bool useRoughnessMap;
-    bool useMetallicMap;
-    bool useNormalMap;
-
 // note that in our deferred pipeline, we do not care about most of these
 public:
     MeshRenderer();
@@ -68,5 +45,34 @@ public:
     unsigned int getAlbedoID() const { return albedoMap.getTextureID(); };
     unsigned int getMetallicID() const { return metallicMap.getTextureID(); };
     unsigned int getNormalID() const { return normalMap.getTextureID(); };
-    unsigned int getRoughnessID() const { return roughnessMap.getTextureID(); };    
+    unsigned int getRoughnessID() const { return roughnessMap.getTextureID(); };
+    
+    bool useAlbedoMap;
+    bool useRoughnessMap;
+    bool useMetallicMap;
+    bool useNormalMap;
+    bool showModel = true;
+    bool showEnv = true;
+
+private:
+    Shader shader;
+    Mesh *mesh;
+
+    Texture2D albedoMap;
+    Texture2D normalMap;
+    Texture2D metallicMap;
+    Texture2D roughnessMap;
+
+    // default PBR values, excluding maps
+    glm::vec3 albedo;
+    float metallic;
+    float roughness;
+    float ambientOcclusion;
+
+    // transformations
+    glm::mat4 model;
+    glm::vec3 translation;
+    glm::vec3 scaleAmt;
+    glm::vec3 rotationAxis;
+    float rotateTheta;
 };

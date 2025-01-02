@@ -19,8 +19,8 @@ const float stride = 1.0;
 uniform float maxDistance;
 uniform float thickness;
 
-const float near = 1.0;
-const float far = 1000.0;
+uniform float near;
+uniform float far;
 
 vec3 viewToFrag(vec4 view)
 {
@@ -79,7 +79,7 @@ bool screenSpaceRayMarch(
         float sampleDepth = texture2D(gMaterial, p).z;
         sampleDepth = linearizeDepth(sampleDepth);
 
-        float diff = rayDepth - sampleDepth;
+        float diff = sampleDepth - rayDepth;
         if (diff > 0 && diff < thickness)
         {
             hit = p;
@@ -107,7 +107,7 @@ bool screenSpaceRayMarch(
         float sampleDepth = texture2D(gMaterial, p).z;
         sampleDepth = linearizeDepth(sampleDepth);
 
-        float diff = rayDepth - sampleDepth;
+        float diff = sampleDepth - rayDepth; // swapped it ?
 
         if (diff > 0 && diff < thickness)
         {

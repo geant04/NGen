@@ -87,7 +87,7 @@ void DeferredFramebuffer::Create(unsigned int WIDTH, unsigned int HEIGHT)
 
 void DeferredFramebuffer::DrawLighting()
 {
-
+    
 }
 
 unsigned int DeferredFramebuffer::GetGBuffer() const { return gBuffer; }

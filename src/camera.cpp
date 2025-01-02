@@ -6,15 +6,10 @@ Camera::Camera() :
 {}
 
 Camera::Camera(unsigned int width, unsigned int height) 
-    : Camera(width, height, glm::vec3(0.0f, 0.0f, 10.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f))
-{
-    look = glm::normalize(ref - eye);
-    right = glm::normalize(glm::cross(look, up));
-    world_up = glm::vec3(0.0f, 1.0f, 0.0f);
-}
-
-Camera::Camera(unsigned int width, unsigned int height, glm::vec3 eye, glm::vec3 ref, glm::vec3 up) 
- : width(width), height(height), eye(eye), ref(ref), up(up), near(1.0f), far(1000.0f), fov(45.0)
+    : fov(55), near(0.1), far(1000),
+      eye(0,0,10), ref(0,0,0),
+      look(0,0,-1), up(0,1,0), right(glm::cross(look, up)),
+      width(width), height(height), world_up(0, 1, 0)
 {
     std::cout << "Camera created" << std::endl;
     std::cout << "far: "  << far << std::endl;
@@ -26,19 +21,17 @@ Camera::~Camera()
     // clean up
 }
 
+glm::mat4 Camera::getViewProjectionMatrix() const
+{
+    return getProjectionMatrix() * getViewMatrix();
+}
+
 glm::mat4 Camera::getProjectionMatrix() const
 {
     return glm::perspective(glm::radians(fov), (float)width / (float)height, near, far);
 }
 
-glm::mat4 Camera::getViewProjectionMatrix() const
-{
-    return getProjectionMatrix() * glm::lookAt(eye, ref, up);
-}
-
 glm::mat4 Camera::getViewMatrix() const
 {
-    return glm::lookAt(this->eye,   // Camera position in world space
-                       this->ref,   // Looking at the origin
-                       this->up);  // Up vector (positive Y-axis)
+    return glm::lookAt(eye, ref, up);
 }

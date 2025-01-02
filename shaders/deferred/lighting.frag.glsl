@@ -225,7 +225,7 @@ void main()
 
     // Render skybox logic
     float alpha = material.b;
-    if (alpha != 1.0) {
+    if (alpha * 20.0 == 0.0) {
         out_Col = vec4(vec3(1.), .0);
         return;
     }

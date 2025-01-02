@@ -5,11 +5,11 @@ SSAO::SSAO()
     SSAOShader = Shader("shaders/ssao/ssao.vert.glsl", "shaders/ssao/ssao.frag.glsl");
 }
 
-SSAO::SSAO(float radius, float strength, int samples, unsigned int kernelSize)
-    : SSAOradius(radius), SSAOstrength(strength), SSAOsamples(samples), kernelRadius(kernelSize)
-{
-    SSAOShader = Shader("shaders/ssao/ssao.vert.glsl", "shaders/ssao/ssao.frag.glsl");
-}
+// SSAO::SSAO(SSAO::Settings settings)
+//     : settings(settings)
+// {
+//     SSAOShader = Shader("shaders/ssao/ssao.vert.glsl", "shaders/ssao/ssao.frag.glsl");
+// }
 
 SSAO::~SSAO()
 {
@@ -70,7 +70,7 @@ void SSAO::SSAOPass(const unsigned int gPosition, const unsigned int gNormal, Ca
     SSAOShader.setInt("samples", SSAOsamples);
     SSAOShader.setFloat("radius", SSAOradius);
     SSAOShader.setFloat("aoStrength", SSAOstrength);
-    SSAOShader.setFloat("sssStrength", sss_strength);
+    SSAOShader.setFloat("sssStrength", SSAOinvStrength);
     quad.Draw();
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);

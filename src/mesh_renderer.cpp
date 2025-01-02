@@ -1,11 +1,9 @@
 #include "mesh_renderer.h"
 
 MeshRenderer::MeshRenderer()
-{
-    translation = glm::vec3(0.);
-    scaleAmt = glm::vec3(1.);
-    rotationAxis = glm::vec3(0., 1., 0.);
-}
+    : translation(glm::vec3(0)), scaleAmt(glm::vec3(1)), rotationAxis(glm::vec3(0, 1, 0)),
+    rotateTheta(0), albedo(glm::vec3(0.5, 0, 0)), metallic(0.5), roughness(0.5), ambientOcclusion(1.0)
+{}
 
 MeshRenderer::~MeshRenderer()
 {}
@@ -18,7 +16,6 @@ void MeshRenderer::Draw(
     unsigned int roughnessID)
 {
     shader.use();
-    // TO DO: store the model matrix in the mesh
     glm::mat4 model = glm::mat4(1.0);
 
     model = glm::translate(model, translation);

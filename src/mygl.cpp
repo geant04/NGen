@@ -250,10 +250,7 @@ void MyGL::init()
     float color[3] = {u_Albedo.r, u_Albedo.g, u_Albedo.b};
     float background[3] = {0.0f, 0.0f, 0.0f};
 
-    bool useAlbedoMap = false;
-    bool useNormalMap = false;
-    bool useMetallicMap = false;
-    bool useRoughnessMap = false;
+    // MeshRenderer params...
     bool showModel = true;
     bool showEnv = true;
     bool showSSAODebug = false;
@@ -278,13 +275,8 @@ void MyGL::init()
     unsigned int gBuffer = deferred.GetGBuffer();
 
     // SSAO setup
-    float SSAOradius = 0.314f;
-    float SSAOstrength = 1.4f;
-    int SSAOsamples = 40;
-    unsigned int kernelRadius = 10;
-    SSAO ssao = SSAO(SSAOradius, SSAOstrength, SSAOsamples, kernelRadius);
+    SSAO ssao = SSAO();
     ssao.Create(WIDTH, HEIGHT, true);
-    ssao.AssignParams(SSAOsamples, SSAOradius, SSAOstrength, sss_strength);
 
     // SSR setup
     SSR ssr = SSR(WIDTH, HEIGHT);
@@ -333,7 +325,7 @@ void MyGL::init()
         }
 
         meshRenderer.setParams(u_Albedo, u_Metallic, u_Roughness);
-        meshRenderer.setMapToggles(useAlbedoMap, useRoughnessMap, useMetallicMap, useNormalMap);
+        //meshRenderer.setMapToggles(useAlbedoMap, useRoughnessMap, useMetallicMap, useNormalMap);
 
         for (unsigned int i = 0; i < 1; i++) {
             float spread = 4.5;
@@ -369,7 +361,7 @@ void MyGL::init()
         }
 
         // temporary SSR pass placement
-        if (enableSSR)
+        if (enableSSR && false)
         {
             // linker not set up properly, to do: move ssr.h implementation contents to ssr.cpp
             ssr.SSRPass(
@@ -381,24 +373,24 @@ void MyGL::init()
                 quad);
         }
 
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
         // draw skybox
-        if (showEnv && false)
+        if (showEnv)
         {
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             glDepthMask(GL_FALSE);
             envMap.draw(&camera);
             glDepthMask(GL_TRUE);
         }
         
         // use deferred lighting shader
-        if (enableComposite && false)
+        if (enableComposite)
         {
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
             Shader* deferredShader = deferred.GetShaderPointer();
             deferredShader->use();
-            deferredShader->setVec3("u_CamPos", camera.eye);
+            deferredShader->setVec3("u_CamPos", camera.eye); // pass in Camera, pass in a struct called ImGui settings...
             deferredShader->setVec3("u_SSSColor", SSSColor);
             deferredShader->setBool("u_EnableSSAO", showSSAO);
             deferredShader->setBool("u_DebugSSAO", showSSAODebug);
@@ -407,6 +399,14 @@ void MyGL::init()
             deferredShader->setFloat("u_Scale", sss_scale);
             deferredShader->setFloat("u_Ambient", sss_ambient);
             deferredShader->setFloat("u_Glow", sss_glow);
+            deferredShader->setInt("gPosition", 0);
+            deferredShader->setInt("gNormal", 1);
+            deferredShader->setInt("gAlbedo", 2);
+            deferredShader->setInt("gMaterial", 3);
+            deferredShader->setInt("u_IrradianceMap", 4);
+            deferredShader->setInt("u_SpecularMap", 5);
+            deferredShader->setInt("u_BRDFLUT", 6);
+            deferredShader->setInt("u_SSAO", 7);
 
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, deferred.GetGPosition());
@@ -440,10 +440,10 @@ void MyGL::init()
             ImGui::SliderFloat("Roughness", &u_Roughness, 0.0f, 1.0f);
             ImGui::SliderFloat("Metallic", &u_Metallic, 0.0f, 1.0f);
             ImGui::SliderFloat("AO", &u_AmbientOcclusion, 0.0f, 1.0f);
-            ImGui::Checkbox("Albedo Map", &useAlbedoMap);
-            ImGui::Checkbox("Normal Map", &useNormalMap);
-            ImGui::Checkbox("Metallic Map", &useMetallicMap);
-            ImGui::Checkbox("Roughness Map", &useRoughnessMap);
+            ImGui::Checkbox("Albedo Map", &meshRenderer.useAlbedoMap);
+            ImGui::Checkbox("Normal Map", &meshRenderer.useNormalMap);
+            ImGui::Checkbox("Metallic Map", &meshRenderer.useMetallicMap);
+            ImGui::Checkbox("Roughness Map", &meshRenderer.useRoughnessMap);
         }
 
         if (ImGui::CollapsingHeader("Display Settings"))
@@ -473,10 +473,10 @@ void MyGL::init()
         if (ImGui::CollapsingHeader("SSAO Settings"))
         {
             ImGui::Checkbox("Show SSAO", &showSSAO);
-            ImGui::SliderInt("Samples", ssao.GetSamplesRef(), 0, 100);
-            ImGui::SliderFloat("Radius", ssao.GetRadiusRef(), 0.0f, 1.0f);
-            ImGui::SliderFloat("Strength", ssao.GetStrengthRef(), 0.0f, 2.5f);
-            ImGui::SliderFloat("Inv. Strength", ssao.GetSubStrengthRef(), 0.0f, 1.0f);
+            ImGui::SliderInt("Samples", &ssao.SSAOsamples, 0, 100);
+            ImGui::SliderFloat("Radius", &ssao.SSAOradius, 0.0f, 1.0f);
+            ImGui::SliderFloat("Strength", &ssao.SSAOstrength, 0.0f, 2.5f);
+            ImGui::SliderFloat("Inv. Strength", &ssao.SSAOinvStrength, 0.0f, 1.0f);
             ImGui::Checkbox("SSAO Debug", &showSSAODebug);
         }
 

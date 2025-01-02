@@ -9,7 +9,6 @@ class Camera
 public:
     Camera();
     Camera(unsigned int width, unsigned int height);
-    Camera(unsigned int width, unsigned int height, glm::vec3 eye, glm::vec3 ref, glm::vec3 up);
     ~Camera();
 
     void setWidth(unsigned int width){
@@ -28,7 +27,7 @@ public:
         return height;
     }
 
-    float fov;;
+    float fov;
     float near;
     float far;
     
