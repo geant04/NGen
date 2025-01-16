@@ -17,6 +17,7 @@ public:
     unsigned int GetGNormal() const;
     unsigned int GetGAlbedo() const;
     unsigned int GetGMaterial() const;
+    unsigned int GetDepth() const;
 
     Shader GetShader() const { return deferredShader; }
     Shader &GetShaderRef() { return deferredShader; }

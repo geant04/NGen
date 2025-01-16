@@ -43,93 +43,34 @@ bool screenSpaceRayMarch(
     out vec2 hit,
     out float outDepth)
 {   
-    // homogenous clip space projection
-    vec4 hClipStart = projection * startView;
-    vec4 hClipEnd = projection * endView;
+    vec3 fragStart = viewToFrag(startView);
+    vec3 fragEnd = viewToFrag(endView);
 
-    float k0 = 1.0 / hClipStart.w;
-    float k1 = 1.0 / hClipEnd.w;
+    fragStart.z = linearizeDepth(fragStart.z);
+    fragEnd.z = linearizeDepth(fragEnd.z);
 
-    // camera space coordinates, but interpolated homogeneous
-    vec3 q0 = hClipStart.xyz; 
-    vec3 q1 = hClipEnd.xyz;
-    
-    // NDC screenspace coordinates [-1, 1] range I think... idk tbh
-    vec2 p0 = hClipStart.xy * k0 * 0.5 + 0.5;
-    vec2 p1 = hClipEnd.xy * k1 * 0.5 + 0.5;
-
-    // do an unoptimized approach for now
-    int stepCount = 64;
-    int binSearch = 0;
-    float increment = 1.0 / float(stepCount);
-    float w = 0;
-    float prevW = 0;
-
-    for (int i = 0; i < stepCount; i++)
+    for (int i = 0; i < steps; i++)
     {
-        w += increment;
+        float t = float(i) / float(steps);
+        vec3 frag = mix(fragStart, fragEnd, t);
 
-        float k = mix(k0, k1, w);
-        vec3 q = mix(q0, q1, w);
-        vec2 p = mix(p0, p1, w);
+        float depth = linearizeDepth(texture2D(gMaterial, frag.xy).z);
+        float diff = frag.z - depth;
 
-        if (p.x > 1 || p.y > 1 || p.x < 0 || p.y < 0) return false;
-
-        float rayDepth = linearizeDepth(q.z * k);
-        float sampleDepth = texture2D(gMaterial, p).z;
-        sampleDepth = linearizeDepth(sampleDepth);
-
-        float diff = sampleDepth - rayDepth;
-        if (diff > 0 && diff < thickness)
+        if (diff >= 0 && diff < thickness)
         {
-            hit = p;
-            outDepth = rayDepth;
-            binSearch = 1;
-        }
-        else
-        {
-            prevW = w;
+            hit = frag.xy;
+            return true;
         }
     }
 
-    w = prevW + (w - prevW) / 2.0;
-    int iterations = 10 * binSearch;
-    
-    for (int i = 0; i < iterations; i++)
-    {
-        float k = mix(k0, k1, w);
-        vec3 q = mix(q0, q1, w);
-        vec2 p = mix(p0, p1, w);
-
-        if (p.x > 1 || p.y > 1 || p.x < 0 || p.y < 0) return false;
-
-        float rayDepth = linearizeDepth(q.z * k);
-        float sampleDepth = texture2D(gMaterial, p).z;
-        sampleDepth = linearizeDepth(sampleDepth);
-
-        float diff = sampleDepth - rayDepth; // swapped it ?
-
-        if (diff > 0 && diff < thickness)
-        {
-            hit = p;
-            outDepth = rayDepth;
-            w = prevW + (w - prevW) / 2.0;
-        }
-        else
-        {
-            float temp = w;
-            w = w + (w - prevW) / 2.0;
-            prevW = w;
-        }
-    }
-
-    return false || (binSearch == 1);
+    return false;
 }
 
 
 
 void main()
-{
+{    
     vec3 worldPos = texture2D(gPosition, fs_UV.xy).xyz;
     vec3 worldNor = texture2D(gNormal, fs_UV.xy).xyz;
 

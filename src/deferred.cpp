@@ -95,3 +95,4 @@ unsigned int DeferredFramebuffer::GetGPosition() const { return gPosition; }
 unsigned int DeferredFramebuffer::GetGNormal() const { return gNormal; }
 unsigned int DeferredFramebuffer::GetGAlbedo() const { return gAlbedo; }
 unsigned int DeferredFramebuffer::GetGMaterial() const { return gMaterial; }
+unsigned int DeferredFramebuffer::GetDepth() const { return rboDepth; }

@@ -32,8 +32,9 @@ glm::vec2 mousePos;
 bool mousePressed;
 
 MyGL::MyGL()
+    : camera(WIDTH, HEIGHT)
 {
-    camera = Camera(WIDTH, HEIGHT);
+    //camera = Camera(WIDTH, HEIGHT);
     lastMousePos = glm::vec2(WIDTH / 2, HEIGHT / 2);
     firstMouse = true;
     init();
@@ -352,7 +353,7 @@ void MyGL::init()
         }
 
         // temporary SSR pass placement
-        if (enableSSR && false)
+        if (enableSSR)
         {
             // linker not set up properly, to do: move ssr.h implementation contents to ssr.cpp
             ssr.SSRPass(
@@ -362,9 +363,10 @@ void MyGL::init()
                 deferred.GetGMaterial(),
                 camera,
                 quad);
+        } else
+        {
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         }
-
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // draw skybox
         if (showEnv)
@@ -375,7 +377,7 @@ void MyGL::init()
         }
         
         // use deferred lighting shader
-        if (enableComposite)
+        if (enableComposite && !enableSSR)
         {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -484,7 +486,7 @@ void MyGL::init()
         {
             ImGui::Checkbox("Enable SSR", &enableSSR);
             ImGui::SliderFloat("Thickness", &ssr.thickness, 0.0f, 1.0f);
-            ImGui::SliderFloat("Max Distance", &ssr.maxDistance, 0.0f, 20.0f);
+            ImGui::SliderFloat("Max Distance", &ssr.maxDistance, 0.0f, 30.0f);
         }
 
         ImGui::End();
