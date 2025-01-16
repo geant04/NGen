@@ -80,5 +80,5 @@ void main()
     gPosition = vec4(fs_Pos, 1.0);
     gNormal = vec4(normal, 1.0);
     gAlbedo = vec4(albedo, 1.0);
-    gMaterial = vec4(metallic, roughness, 1.0, 1.0);
+    gMaterial = vec4(metallic, roughness, gl_FragCoord.z, 1.0);
 }

@@ -1,10 +1,11 @@
 #include "mygl.h"
 
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
 #include "shader.h"
 #include "mesh.h"
 #include "skybox.h"
+#include "geometry/quad.h"
+#include "geometry/cube.h"
+#include "features/ssr.h"
 #include "texture.h"
 #include "mesh_renderer.h"
 
@@ -26,8 +27,16 @@
 
 # define M_PI           3.14159265358979323846
 
+unsigned int WIDTH = 1280, HEIGHT = 720;
+glm::vec2 mousePos;
+bool mousePressed;
+
 MyGL::MyGL()
+    : camera(WIDTH, HEIGHT)
 {
+    //camera = Camera(WIDTH, HEIGHT);
+    lastMousePos = glm::vec2(WIDTH / 2, HEIGHT / 2);
+    firstMouse = true;
     init();
 }
 
@@ -37,29 +46,11 @@ MyGL::~MyGL()
     glfwTerminate();
 }
 
-// camera
-const int WIDTH = 1280;
-const int HEIGHT = 720;
-Camera camera(WIDTH, HEIGHT);
-glm::vec2 lastMousePos = glm::vec2(WIDTH / 2, HEIGHT / 2);
-bool firstMouse = true;
-bool mousePressed = false;
-bool wantCapture = false;
-float deltaTime = 0.0f;
-float lastFrame = 0.0f;
-
-// display settings
-bool turntable = false;
-bool angledTurn = false;
-bool showSSAO = true;
-
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     glViewport(0, 0, width, height);
-
-    // update the camera's width and height
-    camera.setWidth(width);
-    camera.setHeight(height);
+    WIDTH = width;
+    HEIGHT = height;
 }
 
 void processInput(GLFWwindow* window, Camera& camera, float deltaTime)
@@ -101,16 +92,19 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
     float xpos = static_cast<float>(xposIn);
     float ypos = static_cast<float>(yposIn);
 
-    glm::vec2 pos = glm::vec2(xpos, ypos);
+    mousePos = glm::vec2(xpos, ypos);
+}
 
+void MyGL::handleMouseCallBack()
+{
     if (firstMouse)
     {
-        lastMousePos = pos;
+        lastMousePos = mousePos;
         firstMouse = false;
     }
 
-    glm::vec2 offset = pos - lastMousePos;
-    lastMousePos = pos;
+    glm::vec2 offset = mousePos - lastMousePos;
+    lastMousePos = mousePos;
 
     float sensitivity = 0.2f;
     offset *= sensitivity;
@@ -126,7 +120,6 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
     {
-        //lastMousePos = glm::vec2(xpos, ypos);
         mousePressed = true;
     } else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
     {
@@ -156,10 +149,20 @@ void MyGL::init()
     }
 
     glfwMakeContextCurrent(window);
+
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        std::cerr << "Failed to initialize OpenGL loader!" << std::endl;
+        return;
+    }
+
     // register callback -- handle window resize
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    camera.setWidth(WIDTH); // needs to recalculate the projection matrix?
+    camera.setHeight(HEIGHT);
+
     // register callback -- handle mouse movement
     glfwSetCursorPosCallback(window, mouse_callback);
+
     // register callback -- handle mouse button press
     glfwSetMouseButtonCallback(window, mouse_button_callback);
 
@@ -192,25 +195,30 @@ void MyGL::init()
                                "textures/pbrGold/gold-scuffed_roughness.png");
     meshRenderer.LoadShader("shaders/deferred/gbuffer.vert.glsl", "shaders/deferred/gbuffer.frag.glsl");
 
-    Mesh groundMesh;
-    groundMesh.LoadObj("models/cube.obj");
+    Cube groundMesh;
     groundMesh.create();
 
     MeshRenderer groundRenderer;
+    Texture2D funWall = Texture2D("textures/funTextures/crab_rig.png");
     groundRenderer.SetMesh(&groundMesh);
     groundRenderer.LoadMaterials("textures/pbrCopper/Copper-scuffed_basecolor-boosted.png",
                                "textures/pbrCopper/Copper-scuffed_normal.png",
                                "textures/pbrCopper/Copper-scuffed_metallic.png",
                                "textures/pbrCopper/Copper-scuffed_roughness.png");
     groundRenderer.LoadShader("shaders/deferred/gbuffer.vert.glsl", "shaders/deferred/gbuffer.frag.glsl");
+    groundRenderer.rotate(0, glm::vec3(0, 1, 0));
     groundRenderer.translate(glm::vec3(0, -4.75, 0));
-    groundRenderer.scale(glm::vec3(8, 0.75, 8));
+    groundRenderer.scale(glm::vec3(8, 0.75, 6));
+    groundRenderer.setMapToggles(true, true, true, true);
 
     Skybox envMap;
     envMap.loadHDR("textures/hdr/hangar_interior_4k.hdr");
     envMap.createIrradianceMap();
     envMap.createSpecularMap();
     envMap.createBRDFLUT();
+
+    Quad quad;
+    quad.create();
 
     // Viewport resizing necessary after a bunch of the crap i did
     // --------------------------
@@ -237,32 +245,24 @@ void MyGL::init()
     float color[3] = {u_Albedo.r, u_Albedo.g, u_Albedo.b};
     float background[3] = {0.0f, 0.0f, 0.0f};
 
-    bool useAlbedoMap = false;
-    bool useNormalMap = false;
-    bool useMetallicMap = false;
-    bool useRoughnessMap = false;
-
+    // MeshRenderer params...
     bool showModel = true;
     bool showEnv = true;
-    
-    bool enableSSAO = true;
-    bool showSSAODebug = true;
-    float SSAOradius = 0.314;
-    float SSAOstrength = 1.4;
-    int SSAOsamples = 40;
+    bool showSSAODebug = false;
+    bool enableSSR = true;
+    bool showSSRDebug = false;
+    bool enableComposite = true;
 
     glm::vec3 SSSColor = glm::vec3(1.f, 1.0f, 1.0f);
     float sssColor[3] = {SSSColor.r, SSSColor.g, SSSColor.b};
-    float sss_distortion = 0.352;
-    float sss_scale = 1.0;
-    float sss_ambient = 0.2;
-    float sss_glow = 2;
-    float sss_strength = 1.0;
+    float sss_distortion = 0.352f;
+    float sss_scale = 1.0f;
+    float sss_ambient = 0.2f;
+    float sss_glow = 2.0f;
+    float sss_strength = 1.0f;
 
     // render loop
     // --------------------------
-
-    // TO DO: ABSTRACT SSAO, DEFERRED RENDERING, AND GAUSSIAN BLUR
 
     // Deferred rendering setup
     DeferredFramebuffer deferred;
@@ -270,18 +270,13 @@ void MyGL::init()
     unsigned int gBuffer = deferred.GetGBuffer();
 
     // SSAO setup
-    unsigned int kernelRadius = 10;
-    SSAO ssao = SSAO(SSAOradius, SSAOstrength, SSAOsamples, kernelRadius);
+    SSAO ssao = SSAO();
     ssao.Create(WIDTH, HEIGHT, true);
-    ssao.AssignParams(SSAOsamples, SSAOradius, SSAOstrength, sss_strength);
 
-    // for testing purposes
-    Shader testQuad;
-    testQuad = Shader("shaders/ssao/ssao.vert.glsl", "shaders/ssao/testSAO.glsl");
-    testQuad.use();
-    testQuad.setInt("testTXT", 0);
+    // SSR setup
+    SSR ssr = SSR(WIDTH, HEIGHT);
 
-    glm::vec3 testPositions[9] = {
+    const glm::vec3 testPositions[9] = {
         glm::vec3( 0., yDisplacement, 0.),
         glm::vec3(-1, yDisplacement, 0.),
         glm::vec3( 1., yDisplacement, 0.),
@@ -299,9 +294,10 @@ void MyGL::init()
     {
         // input
         processInput(window, camera, deltaTime);
+        handleMouseCallBack();
 
         // frame logic
-        float currentFrame = glfwGetTime();
+        float currentFrame = float(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
@@ -325,16 +321,27 @@ void MyGL::init()
         }
 
         meshRenderer.setParams(u_Albedo, u_Metallic, u_Roughness);
-        meshRenderer.setMapToggles(useAlbedoMap, useRoughnessMap, useMetallicMap, useNormalMap);
+        //meshRenderer.setMapToggles(useAlbedoMap, useRoughnessMap, useMetallicMap, useNormalMap);
 
-        for ( unsigned int i = 0; i < 3; i++) {
-            float spread = 4.5;
-            glm::vec3 pos = testPositions[i] * spread;
-            //meshRenderer.scale(glm::vec3(0.20));
-            meshRenderer.translate(pos);
+        for (unsigned int i = 0; i < 1; i++) {
+            meshRenderer.translate(testPositions[i] * 4.5f);
             meshRenderer.Draw(&camera);
         }
-        groundRenderer.Draw(&camera);
+
+        // render ground and wall...
+        groundRenderer.translate(glm::vec3(0, -4.75, 0));
+        groundRenderer.scale(glm::vec3(8, 0.75, 8));
+        groundRenderer.Draw(&camera); // ground
+
+        groundRenderer.translate(glm::vec3(0, 4, -7));
+        groundRenderer.scale(glm::vec3(8.0, 8.0, 0.75));
+        groundRenderer.Draw(
+            &camera,
+            funWall.getTextureID(),
+            groundRenderer.getMetallicID(),
+            groundRenderer.getNormalID(),
+            groundRenderer.getRoughnessID()
+        ); // wall
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -342,12 +349,24 @@ void MyGL::init()
         if (showSSAO)
         {
             // SSAO pass
-            ssao.AssignParams(SSAOsamples, SSAOradius, SSAOstrength, sss_strength);
-            ssao.SSAOPass(deferred.GetGPosition(), deferred.GetGNormal(), camera);
+            ssao.SSAOPass(deferred.GetGPosition(), deferred.GetGNormal(), camera, quad);
         }
 
-        // use deferred lighting shader
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // temporary SSR pass placement
+        if (enableSSR)
+        {
+            // linker not set up properly, to do: move ssr.h implementation contents to ssr.cpp
+            ssr.SSRPass(
+                deferred.GetGPosition(), 
+                deferred.GetGNormal(), 
+                deferred.GetGAlbedo(),
+                deferred.GetGMaterial(),
+                camera,
+                quad);
+        } else
+        {
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        }
 
         // draw skybox
         if (showEnv)
@@ -356,47 +375,55 @@ void MyGL::init()
             envMap.draw(&camera);
             glDepthMask(GL_TRUE);
         }
-
-        Shader deferredShader = deferred.GetShader();
-        deferredShader.use();
-        deferredShader.setVec3("u_CamPos", camera.eye);
-        deferredShader.setBool("u_EnableSSAO", showSSAO);
-        deferredShader.setBool("u_DebugSSAO", showSSAODebug);
-        deferredShader.setFloat("aoVal", u_AmbientOcclusion);
-        deferredShader.setVec3("u_SSSColor", SSSColor);
-        deferredShader.setFloat("u_Distortion", sss_distortion);
-        deferredShader.setFloat("u_Scale", sss_scale);
-        deferredShader.setFloat("u_Ambient", sss_ambient);
-        deferredShader.setFloat("u_Glow", sss_glow);
-
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, deferred.GetGPosition());
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, deferred.GetGNormal());
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, deferred.GetGAlbedo());
-        glActiveTexture(GL_TEXTURE3);
-        glBindTexture(GL_TEXTURE_2D, deferred.GetGMaterial());
         
-        glActiveTexture(GL_TEXTURE4);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, envMap.getIrradianceMap());
-        glActiveTexture(GL_TEXTURE5);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, envMap.getSpecularMap());
-        glActiveTexture(GL_TEXTURE6);
-        glBindTexture(GL_TEXTURE_2D, envMap.getBRDFLUT());
-        glActiveTexture(GL_TEXTURE7);
-        glBindTexture(GL_TEXTURE_2D, ssao.GetSSAOBuffer());
+        // use deferred lighting shader
+        if (enableComposite && !enableSSR)
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        Skybox::renderQuad();
-        glDisable(GL_BLEND);
+            Shader* deferredShader = deferred.GetShaderPointer();
+            deferredShader->use();
+            deferredShader->setVec3("u_CamPos", camera.eye); // pass in Camera, pass in a struct called ImGui settings...
+            deferredShader->setVec3("u_SSSColor", SSSColor);
+            deferredShader->setBool("u_EnableSSAO", showSSAO);
+            deferredShader->setBool("u_DebugSSAO", showSSAODebug);
+            deferredShader->setFloat("aoVal", u_AmbientOcclusion);
+            deferredShader->setFloat("u_Distortion", sss_distortion);
+            deferredShader->setFloat("u_Scale", sss_scale);
+            deferredShader->setFloat("u_Ambient", sss_ambient);
+            deferredShader->setFloat("u_Glow", sss_glow);
+            deferredShader->setInt("gPosition", 0);
+            deferredShader->setInt("gNormal", 1);
+            deferredShader->setInt("gAlbedo", 2);
+            deferredShader->setInt("gMaterial", 3);
+            deferredShader->setInt("u_IrradianceMap", 4);
+            deferredShader->setInt("u_SpecularMap", 5);
+            deferredShader->setInt("u_BRDFLUT", 6);
+            deferredShader->setInt("u_SSAO", 7);
 
-        // some combination final pass to combine SSAO and our deferred render
-        //testQuad.use();
-        //glActiveTexture(GL_TEXTURE0);
-        //glBindTexture(GL_TEXTURE_2D, SSAObuffer);
-        //envMap.renderQuad();
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, deferred.GetGPosition());
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, deferred.GetGNormal());
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, deferred.GetGAlbedo());
+            glActiveTexture(GL_TEXTURE3);
+            glBindTexture(GL_TEXTURE_2D, deferred.GetGMaterial());
+            
+            glActiveTexture(GL_TEXTURE4);
+            glBindTexture(GL_TEXTURE_CUBE_MAP, envMap.getIrradianceMap());
+            glActiveTexture(GL_TEXTURE5);
+            glBindTexture(GL_TEXTURE_CUBE_MAP, envMap.getSpecularMap());
+            glActiveTexture(GL_TEXTURE6);
+            glBindTexture(GL_TEXTURE_2D, envMap.getBRDFLUT());
+            glActiveTexture(GL_TEXTURE7);
+            glBindTexture(GL_TEXTURE_2D, ssao.GetSSAOBuffer());
+
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            quad.Draw();
+            glDisable(GL_BLEND);
+        }
 
         ImGui::Begin("Settings");
         ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
@@ -406,10 +433,10 @@ void MyGL::init()
             ImGui::SliderFloat("Roughness", &u_Roughness, 0.0f, 1.0f);
             ImGui::SliderFloat("Metallic", &u_Metallic, 0.0f, 1.0f);
             ImGui::SliderFloat("AO", &u_AmbientOcclusion, 0.0f, 1.0f);
-            ImGui::Checkbox("Albedo Map", &useAlbedoMap);
-            ImGui::Checkbox("Normal Map", &useNormalMap);
-            ImGui::Checkbox("Metallic Map", &useMetallicMap);
-            ImGui::Checkbox("Roughness Map", &useRoughnessMap);
+            ImGui::Checkbox("Albedo Map", &meshRenderer.useAlbedoMap);
+            ImGui::Checkbox("Normal Map", &meshRenderer.useNormalMap);
+            ImGui::Checkbox("Metallic Map", &meshRenderer.useMetallicMap);
+            ImGui::Checkbox("Roughness Map", &meshRenderer.useRoughnessMap);
         }
 
         if (ImGui::CollapsingHeader("Display Settings"))
@@ -438,10 +465,11 @@ void MyGL::init()
 
         if (ImGui::CollapsingHeader("SSAO Settings"))
         {
-            ImGui::Checkbox("Enable SSAO", &showSSAO);
-            ImGui::SliderInt("Samples", &SSAOsamples, 0, 100);
-            ImGui::SliderFloat("Radius", &SSAOradius, 0.0f, 1.0f);
-            ImGui::SliderFloat("Strength", &SSAOstrength, 0.0f, 2.5f);
+            ImGui::Checkbox("Show SSAO", &showSSAO);
+            ImGui::SliderInt("Samples", &ssao.SSAOsamples, 0, 100);
+            ImGui::SliderFloat("Radius", &ssao.SSAOradius, 0.0f, 1.0f);
+            ImGui::SliderFloat("Strength", &ssao.SSAOstrength, 0.0f, 2.5f);
+            ImGui::SliderFloat("Inv. Strength", &ssao.SSAOinvStrength, 0.0f, 1.0f);
             ImGui::Checkbox("SSAO Debug", &showSSAODebug);
         }
 
@@ -452,7 +480,13 @@ void MyGL::init()
             ImGui::SliderFloat("Scale", &sss_scale, 0.0f, 20.f);
             ImGui::SliderFloat("Ambient", &sss_ambient, 0.0f, 2.0f);
             ImGui::SliderFloat("Glow", &sss_glow, 0.0f, 2.0f);
-            ImGui::SliderFloat("Inv. Strength", &sss_strength, 0.0f, 1.0f);
+        }
+
+        if (ImGui::CollapsingHeader("SSR Settings"))
+        {
+            ImGui::Checkbox("Enable SSR", &enableSSR);
+            ImGui::SliderFloat("Thickness", &ssr.thickness, 0.0f, 1.0f);
+            ImGui::SliderFloat("Max Distance", &ssr.maxDistance, 0.0f, 30.0f);
         }
 
         ImGui::End();

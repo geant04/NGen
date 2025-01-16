@@ -113,6 +113,7 @@ void main()
         ao *= aoProps.r;
         thickness = aoProps.g;
     }
+
     if (u_DebugSSAO)
     {
         out_Col = vec4(texture(u_SSAO, fs_UV).rgb, 1.0);
@@ -224,7 +225,7 @@ void main()
 
     // Render skybox logic
     float alpha = material.b;
-    if (alpha != 1.0) {
+    if (alpha * 20.0 == 0.0) {
         out_Col = vec4(vec3(1.), .0);
         return;
     }

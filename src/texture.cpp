@@ -3,9 +3,12 @@
 
 Texture2D::Texture2D()
     : textureID(-1)
-{}
+{
+    init();
+}
 
 Texture2D::Texture2D(const char* texturePath)
+    : Texture2D()
 {
     loadTexture(texturePath);
 }

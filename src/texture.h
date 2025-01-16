@@ -15,9 +15,7 @@ public:
     void bufferPixelData(unsigned int width, unsigned int height, GLvoid *pixels, int nrChannels);
     bool loaded = false;
 
-    unsigned int getTextureID() {
-        return textureID;
-    }
+    unsigned int getTextureID() const { return textureID; }
 private:
     unsigned int textureID;
 };

@@ -1,7 +1,8 @@
 #include "deferred.h"
+#include <iostream>
 
 DeferredFramebuffer::DeferredFramebuffer()
-: gBuffer(0), gPosition(0), gNormal(0), gAlbedo(0), gMaterial(0), rboDepth(0)
+: gBuffer(-1), gPosition(-1), gNormal(-1), gAlbedo(-1), gMaterial(-1), rboDepth(-1)
 {
     deferredShader = Shader("shaders/deferred/lighting.vert.glsl", "shaders/deferred/lighting.frag.glsl");
     deferredShader.use();
@@ -41,6 +42,7 @@ void DeferredFramebuffer::Create(unsigned int WIDTH, unsigned int HEIGHT)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gPosition, 0);
+    std::cout << "gPosition: " << gPosition << std::endl;
 
     // generate normal buffer -- id: 1
     glGenTextures(1, &gNormal);
@@ -49,6 +51,7 @@ void DeferredFramebuffer::Create(unsigned int WIDTH, unsigned int HEIGHT)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gNormal, 0);
+    std::cout << "gNormal: " << gNormal << std::endl;
 
     // generate albedo buffer -- id: 2
     glGenTextures(1, &gAlbedo);
@@ -57,6 +60,7 @@ void DeferredFramebuffer::Create(unsigned int WIDTH, unsigned int HEIGHT)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gAlbedo, 0);
+    std::cout << "gAlbedo: " << gAlbedo << std::endl;
 
     // generate material buffer -- id: 3
     glGenTextures(1, &gMaterial);
@@ -65,6 +69,7 @@ void DeferredFramebuffer::Create(unsigned int WIDTH, unsigned int HEIGHT)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, gMaterial, 0);
+    std::cout << "gMaterial: " << gMaterial << std::endl;
 
     // write to four textures, but I'm going to be honest we probably don't need the fourth one
     GLuint attachments[4] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3 };
@@ -82,5 +87,12 @@ void DeferredFramebuffer::Create(unsigned int WIDTH, unsigned int HEIGHT)
 
 void DeferredFramebuffer::DrawLighting()
 {
-
+    
 }
+
+unsigned int DeferredFramebuffer::GetGBuffer() const { return gBuffer; }
+unsigned int DeferredFramebuffer::GetGPosition() const { return gPosition; }
+unsigned int DeferredFramebuffer::GetGNormal() const { return gNormal; }
+unsigned int DeferredFramebuffer::GetGAlbedo() const { return gAlbedo; }
+unsigned int DeferredFramebuffer::GetGMaterial() const { return gMaterial; }
+unsigned int DeferredFramebuffer::GetDepth() const { return rboDepth; }

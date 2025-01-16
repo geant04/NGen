@@ -12,16 +12,16 @@ public:
     void DrawLighting();
     void Clear();
 
-// TO DO: MERGE AO/THICKNESS DETAILS INTO gMaterial or distribute them to gAlbedo and gNormal
-
-    unsigned int GetGBuffer() const { return gBuffer; }
-    unsigned int GetGPosition() const { return gPosition; }
-    unsigned int GetGNormal() const { return gNormal; }
-    unsigned int GetGAlbedo() const { return gAlbedo; }
-    unsigned int GetGMaterial() const { return gMaterial; }
+    unsigned int GetGBuffer() const;
+    unsigned int GetGPosition() const;
+    unsigned int GetGNormal() const;
+    unsigned int GetGAlbedo() const;
+    unsigned int GetGMaterial() const;
+    unsigned int GetDepth() const;
 
     Shader GetShader() const { return deferredShader; }
-    Shader &GetShader() { return deferredShader; }
+    Shader &GetShaderRef() { return deferredShader; }
+    Shader* GetShaderPointer() { return &deferredShader; }
 
 private:
     unsigned int gBuffer, 

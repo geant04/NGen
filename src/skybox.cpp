@@ -2,14 +2,14 @@
 #include "stb/stb_image.h"
 #include <glad/glad.h>
 
-unsigned int Skybox::quadVAO = 0;
-unsigned int Skybox::quadVBO = 0;
-
 Skybox::Skybox()
     : VAO(0),
+      quadVAO(0),
+      quadVBO(0),
       captureFBO(0),
       captureRBO(0),
       hdrTexture(0),
+      brdfTexture(-1),
       captureProjection(glm::perspective(glm::radians(90.0f), 1.0f, 0.1f, 10.0f))
 {
     skyboxShader = Shader("shaders/skybox.vert.glsl", "shaders/skybox.frag.glsl");
@@ -406,6 +406,7 @@ void Skybox::createSpecularMap()
 void Skybox::createBRDFLUT()
 {
     glGenTextures(1, &brdfTexture);
+    std::cout << "brdfTextureID: " << brdfTexture << std::endl;
 
     glBindTexture(GL_TEXTURE_2D, brdfTexture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16F, 512, 512, 0, GL_RG, GL_FLOAT, 0);
