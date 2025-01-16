@@ -22,6 +22,7 @@ public:
 
     void LoadShader(const char* vertPath, const char* fragPath);
     void SetMesh(Mesh *m);
+
     void LoadMaterials(
         const char* albedoPath, 
         const char* normalMap,
@@ -31,12 +32,18 @@ public:
     void LoadNormal(const char* albedoPath);
     void LoadMetalMap(const char* albedoPath);
     void LoadRoughMap(const char* albedoPath);
-    void setParams(glm::vec3 albedo, float metallic, float roughness);
+    void setParams(const glm::vec3& albedo, float metallic, float roughness);
     void setMapToggles(bool useAlbedo, bool useRoughness, bool useMetallic, bool useNormal);
 
-    void translate(glm::vec3 direction) { this->translation = direction; };
-    void scale(glm::vec3 scaleAmt) { this->scaleAmt = scaleAmt; };
-    void rotate(float angle, glm::vec3 axis)
+    void translate(const glm::vec3& direction) 
+    { 
+        this->translation = direction; 
+    };
+    void scale(const glm::vec3& scaleAmt) 
+    { 
+        this->scaleAmt = scaleAmt; 
+    };
+    void rotate(float angle, const glm::vec3& axis)
     {
         this->rotationAxis = axis;
         this->rotateTheta = angle;
@@ -47,10 +54,10 @@ public:
     unsigned int getNormalID() const { return normalMap.getTextureID(); };
     unsigned int getRoughnessID() const { return roughnessMap.getTextureID(); };
     
-    bool useAlbedoMap;
-    bool useRoughnessMap;
-    bool useMetallicMap;
-    bool useNormalMap;
+    bool useAlbedoMap = false;
+    bool useRoughnessMap = false;
+    bool useMetallicMap = false;
+    bool useNormalMap = false;
     bool showModel = true;
     bool showEnv = true;
 

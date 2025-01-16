@@ -8,7 +8,7 @@
 class SSAO
 {
 public:
-    SSAO() : SSAOradius(0.314), SSAOstrength(1.4), SSAOinvStrength(1.0), SSAOsamples(40), kernelRadius(10) {}
+    SSAO();
     ~SSAO();
 
     void Create(const unsigned int WIDTH, const unsigned int HEIGHT, const bool isHalf);

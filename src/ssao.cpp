@@ -1,10 +1,10 @@
 #include "ssao.h"
 
-SSAO::SSAO()
+SSAO::SSAO() 
+: SSAOradius(0.314), SSAOstrength(1.4), SSAOinvStrength(1.0), SSAOsamples(40), kernelRadius(10) 
 {
     SSAOShader = Shader("shaders/ssao/ssao.vert.glsl", "shaders/ssao/ssao.frag.glsl");
 }
-
 // SSAO::SSAO(SSAO::Settings settings)
 //     : settings(settings)
 // {

@@ -1,7 +1,5 @@
 #include "mygl.h"
 
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
 #include "shader.h"
 #include "mesh.h"
 #include "skybox.h"
@@ -29,8 +27,15 @@
 
 # define M_PI           3.14159265358979323846
 
+unsigned int WIDTH = 1280, HEIGHT = 720;
+glm::vec2 mousePos;
+bool mousePressed;
+
 MyGL::MyGL()
 {
+    camera = Camera(WIDTH, HEIGHT);
+    lastMousePos = glm::vec2(WIDTH / 2, HEIGHT / 2);
+    firstMouse = true;
     init();
 }
 
@@ -40,29 +45,11 @@ MyGL::~MyGL()
     glfwTerminate();
 }
 
-// camera
-const int WIDTH = 1280;
-const int HEIGHT = 720;
-Camera camera(WIDTH, HEIGHT);
-glm::vec2 lastMousePos = glm::vec2(WIDTH / 2, HEIGHT / 2);
-bool firstMouse = true;
-bool mousePressed = false;
-bool wantCapture = false;
-float deltaTime = 0.0f;
-float lastFrame = 0.0f;
-
-// display settings
-bool turntable = false;
-bool angledTurn = false;
-bool showSSAO = true;
-
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     glViewport(0, 0, width, height);
-
-    // update the camera's width and height
-    camera.setWidth(width);
-    camera.setHeight(height);
+    WIDTH = width;
+    HEIGHT = height;
 }
 
 void processInput(GLFWwindow* window, Camera& camera, float deltaTime)
@@ -104,16 +91,19 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
     float xpos = static_cast<float>(xposIn);
     float ypos = static_cast<float>(yposIn);
 
-    glm::vec2 pos = glm::vec2(xpos, ypos);
+    mousePos = glm::vec2(xpos, ypos);
+}
 
+void MyGL::handleMouseCallBack()
+{
     if (firstMouse)
     {
-        lastMousePos = pos;
+        lastMousePos = mousePos;
         firstMouse = false;
     }
 
-    glm::vec2 offset = pos - lastMousePos;
-    lastMousePos = pos;
+    glm::vec2 offset = mousePos - lastMousePos;
+    lastMousePos = mousePos;
 
     float sensitivity = 0.2f;
     offset *= sensitivity;
@@ -129,7 +119,6 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
     {
-        //lastMousePos = glm::vec2(xpos, ypos);
         mousePressed = true;
     } else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
     {
@@ -167,8 +156,12 @@ void MyGL::init()
 
     // register callback -- handle window resize
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    camera.setWidth(WIDTH); // needs to recalculate the projection matrix?
+    camera.setHeight(HEIGHT);
+
     // register callback -- handle mouse movement
     glfwSetCursorPosCallback(window, mouse_callback);
+
     // register callback -- handle mouse button press
     glfwSetMouseButtonCallback(window, mouse_button_callback);
 
@@ -215,6 +208,7 @@ void MyGL::init()
     groundRenderer.rotate(0, glm::vec3(0, 1, 0));
     groundRenderer.translate(glm::vec3(0, -4.75, 0));
     groundRenderer.scale(glm::vec3(8, 0.75, 6));
+    groundRenderer.setMapToggles(true, true, true, true);
 
     Skybox envMap;
     envMap.loadHDR("textures/hdr/hangar_interior_4k.hdr");
@@ -281,7 +275,7 @@ void MyGL::init()
     // SSR setup
     SSR ssr = SSR(WIDTH, HEIGHT);
 
-    glm::vec3 testPositions[9] = {
+    const glm::vec3 testPositions[9] = {
         glm::vec3( 0., yDisplacement, 0.),
         glm::vec3(-1, yDisplacement, 0.),
         glm::vec3( 1., yDisplacement, 0.),
@@ -299,6 +293,7 @@ void MyGL::init()
     {
         // input
         processInput(window, camera, deltaTime);
+        handleMouseCallBack();
 
         // frame logic
         float currentFrame = float(glfwGetTime());
@@ -328,15 +323,11 @@ void MyGL::init()
         //meshRenderer.setMapToggles(useAlbedoMap, useRoughnessMap, useMetallicMap, useNormalMap);
 
         for (unsigned int i = 0; i < 1; i++) {
-            float spread = 4.5;
-            glm::vec3 pos = testPositions[i] * spread;
-            //meshRenderer.scale(glm::vec3(0.20));
-            meshRenderer.translate(pos);
+            meshRenderer.translate(testPositions[i] * 4.5f);
             meshRenderer.Draw(&camera);
         }
 
         // render ground and wall...
-        groundRenderer.setMapToggles(true, true, true, true);
         groundRenderer.translate(glm::vec3(0, -4.75, 0));
         groundRenderer.scale(glm::vec3(8, 0.75, 8));
         groundRenderer.Draw(&camera); // ground

@@ -26,7 +26,7 @@ glm::mat4 Camera::getViewProjectionMatrix() const
     return getProjectionMatrix() * getViewMatrix();
 }
 
-glm::mat4 Camera::getProjectionMatrix() const
+glm::mat4 Camera::getProjectionMatrix() const // to do: keep this as a member variable to avoid re-calculation
 {
     return glm::perspective(glm::radians(fov), (float)width / (float)height, near, far);
 }

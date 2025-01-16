@@ -90,7 +90,7 @@ void MeshRenderer::SetMesh(Mesh *m)
     this->mesh = m;
 }
 
-void MeshRenderer::setParams(glm::vec3 albedo, float metallic, float roughness)
+void MeshRenderer::setParams(const glm::vec3& albedo, float metallic, float roughness)
 {
     this->albedo = albedo;
     this->metallic = metallic;
