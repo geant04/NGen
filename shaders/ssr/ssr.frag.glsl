@@ -13,8 +13,10 @@ out vec4 outColor;
 in vec2 fs_UV;
 
 const float resolution = 0.5;
-const int steps = 30;
 const float stride = 1.0;
+
+uniform float offset;
+uniform int steps;
 
 uniform float maxDistance;
 uniform float thickness;
@@ -22,10 +24,13 @@ uniform float thickness;
 uniform float near;
 uniform float far;
 
+uniform bool binSearch;
+uniform bool visCheck;
+
 vec3 viewToFrag(vec4 view)
 {
     vec4 frag = projection * view;
-    frag /= frag.w; // perspective divide... purposefully incorrect without dividing z for now
+    frag.xy /= frag.z;
     frag.xy = frag.xy * 0.5 + 0.5; // [-1, 1] to [0, 1]
 
     return frag.xyz;
@@ -38,36 +43,89 @@ float linearizeDepth(float depth)
 }
 
 bool screenSpaceRayMarch(
-    vec4 startView, 
-    vec4 endView,
+    vec3 fragStart, 
+    vec3 fragEnd,
     out vec2 hit,
-    out float outDepth)
-{   
-    vec3 fragStart = viewToFrag(startView);
-    vec3 fragEnd = viewToFrag(endView);
-
-    fragStart.z = linearizeDepth(fragStart.z);
-    fragEnd.z = linearizeDepth(fragEnd.z);
+    out vec2 binaryT,
+    out float hitDepth)
+{       
+    float prevT;
+    float fragDepth;
 
     for (int i = 0; i < steps; i++)
     {
         float t = float(i) / float(steps);
         vec3 frag = mix(fragStart, fragEnd, t);
 
-        float depth = linearizeDepth(texture2D(gMaterial, frag.xy).z);
-        float diff = frag.z - depth;
+        if (frag.x > 1 || frag.x < 0 || frag.y > 1 || frag.y < 0)
+        {
+            return false;
+        }
 
-        if (diff >= 0 && diff < thickness)
+        float depth = (projection * view * texture2D(gPosition, frag.xy)).z;
+        fragDepth = 1.0 / (mix(1.0 / fragStart.z, 1.0 / fragEnd.z, t) + 0.001);
+
+        float diff = fragDepth - depth;
+
+        if (diff > 0 && diff < thickness)
         {
             hit = frag.xy;
+            hitDepth = fragDepth;
+            binaryT = vec2(t, prevT);
             return true;
+        } else
+        {
+            prevT = t;
         }
     }
 
     return false;
 }
 
+void binarySearch(vec3 fragStart, vec3 fragEnd, vec2 binaryT, out vec2 hit, out float hitDepth)
+{
+    float t = binaryT.x;
+    float prevT = binaryT.y;
+    t = prevT + ((t - prevT) / 2.0);
 
+    for (int i = 0; i < 10; i++)
+    {
+        vec3 frag = mix(fragStart, fragEnd, t);
+        if (frag.x > 1 || frag.x < 0 || frag.y > 1 || frag.y < 0)
+        {
+            break;
+        }
+
+        float depth = (projection * view * texture2D(gPosition, frag.xy)).z;
+        float fragDepth = 1.0 / (mix(1.0 / fragStart.z, 1.0 / fragEnd.z, t) + 0.001);
+        hitDepth = fragDepth;
+
+        float diff = fragDepth - depth;
+
+        if (diff > 0 && diff < 0.001 * thickness) // hit (overshot), move left
+        {
+            t = prevT + ((t - prevT) / 2.0);
+        } else // miss, go right
+        {
+            float temp = t;
+            t = t + ((t - prevT) / 2.0);
+            prevT = temp;
+        }
+
+        hit = mix(fragStart, fragEnd, t).xy;
+    }
+}
+
+void visibilityCheck(vec2 uv, out float alpha, float dotWoWi, float depth)
+{
+    alpha = alpha
+        * (dotWoWi)
+        * (1.0 - clamp(depth / thickness, 0, 1))
+        * (1.0 - smoothstep(0.95, 1.0, uv.y))
+        * smoothstep(0, 0.05, uv.y)
+        * smoothstep(0, 0.05, uv.x)
+        * (1.0 - smoothstep(0.95, 1.0, uv.x));
+}
 
 void main()
 {    
@@ -79,7 +137,7 @@ void main()
     vec3 reflectDir = normalize(reflect(viewDir, worldNor)); // simplify life by just doing this in world space first
     
     // offset by an epsilon
-    vec4 startView = vec4(worldPos.xyz, 1.0);
+    vec4 startView = vec4(worldPos.xyz + worldNor * offset, 1.0);
     vec4 endView = vec4(worldPos.xyz + reflectDir * maxDistance, 1.0);
 
     startView = view * startView;
@@ -89,10 +147,16 @@ void main()
     // if we encounter a hit, return the UV
     //vec4 mainSceneColor = texture2D(gAlbedo, vec2(0.));
     float depth = texture2D(gMaterial, fs_UV.xy).z;
+    float alpha = 1.0;
     vec2 hitUV;
-    float outDepth;
-    bool hit = screenSpaceRayMarch(startView, endView, hitUV, outDepth);
+    vec2 binaryT;
+    
+    vec3 fragStart = viewToFrag(startView);
+    vec3 fragEnd = viewToFrag(endView);
 
+    bool hit = screenSpaceRayMarch(fragStart, fragEnd, hitUV, binaryT, depth);
+    if (hit && binSearch) binarySearch(fragStart, fragEnd, hitUV, binaryT, depth);
+    if (hit && visCheck) visibilityCheck(hitUV, alpha, max(dot(viewDir, reflectDir), 0.0), depth);
     // binarySearch refinement if hit
     vec3 color = (hit ? 1 : 0) * texture2D(gAlbedo, hitUV).rgb;
 

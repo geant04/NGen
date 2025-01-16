@@ -189,11 +189,12 @@ void MyGL::init()
 
     MeshRenderer meshRenderer;
     meshRenderer.SetMesh(&ourMesh);
-    meshRenderer.LoadMaterials("textures/jade/jade_albedo.jpg",
+    meshRenderer.LoadMaterials("textures/wahoo/wahoo.bmp",
                                "textures/pbrWood/mahogfloor_normal.png",
                                "textures/pbrGold/gold-scuffed_metallic.png",
                                "textures/pbrGold/gold-scuffed_roughness.png");
     meshRenderer.LoadShader("shaders/deferred/gbuffer.vert.glsl", "shaders/deferred/gbuffer.frag.glsl");
+    meshRenderer.useAlbedoMap = true;
 
     Cube groundMesh;
     groundMesh.create();
@@ -487,6 +488,10 @@ void MyGL::init()
             ImGui::Checkbox("Enable SSR", &enableSSR);
             ImGui::SliderFloat("Thickness", &ssr.thickness, 0.0f, 1.0f);
             ImGui::SliderFloat("Max Distance", &ssr.maxDistance, 0.0f, 30.0f);
+            ImGui::SliderFloat("Start offset", &ssr.offset, 0.0f, 2.0f);
+            ImGui::SliderInt("Steps", &ssr.steps, 0.0f, 120.0f);
+            ImGui::Checkbox("Enable Bin. Search", &ssr.binarySearch);
+            ImGui::Checkbox("Enable Visibility Check", &ssr.visCheck);
         }
 
         ImGui::End();

@@ -9,7 +9,8 @@ class SSR
 {
 public:
     SSR() {};
-    SSR(unsigned int WIDTH, unsigned int HEIGHT) : thickness(0.0075), maxDistance(10.0)
+    SSR(unsigned int WIDTH, unsigned int HEIGHT)
+     : thickness(0.5), maxDistance(15.0), steps(100), offset(0.1)
     {
         SSRShader = Shader("shaders/ssao/ssao.vert.glsl", "shaders/ssr/ssr.frag.glsl");
         SSRfbo = FrameBuffer();
@@ -28,7 +29,10 @@ public:
     FrameBuffer* GetFBO() { return &SSRfbo; };
     float maxDistance;
     float thickness;
-
+    int steps;
+    float offset;
+    bool binarySearch = true;
+    bool visCheck = true;
 private:
     Shader SSRShader;
     FrameBuffer SSRfbo;
@@ -65,10 +69,14 @@ void SSR::SSRPass(
     SSRShader.setInt("gNormal", 1);
     SSRShader.setInt("gAlbedo", 2);
     SSRShader.setInt("gMaterial", 3);
+    SSRShader.setInt("steps", steps);
     SSRShader.setFloat("maxDistance", maxDistance);
     SSRShader.setFloat("thickness", thickness);
     SSRShader.setFloat("near", camera.near);
     SSRShader.setFloat("far", camera.far);
+    SSRShader.setFloat("offset", offset);
+    SSRShader.setBool("binSearch", binarySearch);
+    SSRShader.setBool("visCheck", visCheck);
     
     // render, ideally should be a quad that's passed in
     mesh.Draw();
