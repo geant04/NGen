@@ -47,7 +47,7 @@ void SSR::SSRPass(
     Mesh &mesh)
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0); // SSRfbo.getID()
+    glBindFramebuffer(GL_FRAMEBUFFER, SSRfbo.getID()); // SSRfbo.getID()
 
     // bind textures
     glActiveTexture(GL_TEXTURE0);
@@ -79,7 +79,9 @@ void SSR::SSRPass(
     SSRShader.setBool("visCheck", visCheck);
     
     // render, ideally should be a quad that's passed in
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     mesh.Draw();
-
+    glDisable(GL_BLEND);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }

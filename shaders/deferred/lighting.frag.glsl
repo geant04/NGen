@@ -17,9 +17,11 @@ uniform samplerCube u_IrradianceMap;
 uniform samplerCube u_SpecularMap;
 uniform sampler2D u_BRDFLUT;
 uniform sampler2D u_SSAO;
+uniform sampler2D u_SSR;
 
 uniform bool u_DebugSSAO;
 uniform bool u_EnableSSAO;
+uniform bool u_EnableSSR;
 
 uniform float aoVal;
 
@@ -98,10 +100,14 @@ vec3 subsurfaceColor(vec3 lightDir, vec3 normal, vec3 viewVec, float thin, vec3 
 
 void main()
 {
-    vec3 albedo = pow(texture(gAlbedo, fs_UV).rgb, vec3(2.2));
     vec4 material = texture(gMaterial, fs_UV);
     float roughness = material.g;
     float metallic = material.r;
+    vec3 albedo = mix(
+        texture(gAlbedo, fs_UV).rgb, 
+        texture(u_SSR, fs_UV).rgb, 
+        (1.0 - roughness) * (u_EnableSSR ? 1 : 0));
+    albedo = pow(albedo, vec3(2.2));
     vec3 normal = texture(gNormal, fs_UV).rgb;
     float ao = aoVal;
     float thickness = 0.0;

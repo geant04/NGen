@@ -250,7 +250,7 @@ void MyGL::init()
     bool showModel = true;
     bool showEnv = true;
     bool showSSAODebug = false;
-    bool enableSSR = true;
+    bool enableSSR = false;
     bool showSSRDebug = false;
     bool enableComposite = true;
 
@@ -366,7 +366,7 @@ void MyGL::init()
                 quad);
         } else
         {
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         }
 
         // draw skybox
@@ -378,7 +378,7 @@ void MyGL::init()
         }
         
         // use deferred lighting shader
-        if (enableComposite && !enableSSR)
+        if (enableComposite)
         {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -386,6 +386,7 @@ void MyGL::init()
             deferredShader->use();
             deferredShader->setVec3("u_CamPos", camera.eye); // pass in Camera, pass in a struct called ImGui settings...
             deferredShader->setVec3("u_SSSColor", SSSColor);
+            deferredShader->setBool("u_EnableSSR", enableSSR);
             deferredShader->setBool("u_EnableSSAO", showSSAO);
             deferredShader->setBool("u_DebugSSAO", showSSAODebug);
             deferredShader->setFloat("aoVal", u_AmbientOcclusion);
@@ -401,6 +402,7 @@ void MyGL::init()
             deferredShader->setInt("u_SpecularMap", 5);
             deferredShader->setInt("u_BRDFLUT", 6);
             deferredShader->setInt("u_SSAO", 7);
+            deferredShader->setInt("u_SSR", 8);
 
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, deferred.GetGPosition());
@@ -419,6 +421,8 @@ void MyGL::init()
             glBindTexture(GL_TEXTURE_2D, envMap.getBRDFLUT());
             glActiveTexture(GL_TEXTURE7);
             glBindTexture(GL_TEXTURE_2D, ssao.GetSSAOBuffer());
+            glActiveTexture(GL_TEXTURE8);
+            glBindTexture(GL_TEXTURE_2D, ssr.GetFBO()->getBufferID());
 
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);

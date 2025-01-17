@@ -30,7 +30,7 @@ uniform bool visCheck;
 vec3 viewToFrag(vec4 view)
 {
     vec4 frag = projection * view;
-    frag.xy /= frag.z;
+    frag.xy /= frag.w;
     frag.xy = frag.xy * 0.5 + 0.5; // [-1, 1] to [0, 1]
 
     return frag.xyz;
@@ -102,7 +102,7 @@ void binarySearch(vec3 fragStart, vec3 fragEnd, vec2 binaryT, out vec2 hit, out 
 
         float diff = fragDepth - depth;
 
-        if (diff > 0 && diff < 0.001 * thickness) // hit (overshot), move left
+        if (diff > 0 && diff < thickness) // hit (overshot), move left
         {
             t = prevT + ((t - prevT) / 2.0);
         } else // miss, go right
@@ -119,7 +119,7 @@ void binarySearch(vec3 fragStart, vec3 fragEnd, vec2 binaryT, out vec2 hit, out 
 void visibilityCheck(vec2 uv, out float alpha, float dotWoWi, float depth)
 {
     alpha = alpha
-        * (dotWoWi)
+        * (1.0 - dotWoWi)
         * (1.0 - clamp(depth / thickness, 0, 1))
         * (1.0 - smoothstep(0.95, 1.0, uv.y))
         * smoothstep(0, 0.05, uv.y)
@@ -156,7 +156,7 @@ void main()
 
     bool hit = screenSpaceRayMarch(fragStart, fragEnd, hitUV, binaryT, depth);
     if (hit && binSearch) binarySearch(fragStart, fragEnd, hitUV, binaryT, depth);
-    if (hit && visCheck) visibilityCheck(hitUV, alpha, max(dot(viewDir, reflectDir), 0.0), depth);
+    if (hit && visCheck) visibilityCheck(hitUV, alpha, max(dot(-viewDir, reflectDir), 0.0), depth);
     // binarySearch refinement if hit
     vec3 color = (hit ? 1 : 0) * texture2D(gAlbedo, hitUV).rgb;
 
