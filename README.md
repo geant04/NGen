@@ -22,7 +22,7 @@ SSAO blog post: https://www.geant.pro/blog/SSAOandSSS
 - [ ] Volumetric rendering for fun
 - [X] Deferred rendering pipeline
 - [X] SSAO (still needs some fixes)
-- [ ] SSR
+- [X] SSR (VERY BUGGY. But technically in)
 - [ ] Clear-coat material
 - [ ] Anisotropic materials
 - [ ] Dielectrics
